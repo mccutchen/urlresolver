@@ -6,17 +6,19 @@ import (
 	"os"
 	"time"
 
-	"github.com/mccutchen/urlmetadata/httphandler"
-	"github.com/mccutchen/urlmetadata/urlresolver"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
+
+	"github.com/mccutchen/urlmetadata/httphandler"
+	"github.com/mccutchen/urlmetadata/safetransport"
+	"github.com/mccutchen/urlmetadata/urlresolver"
 )
 
 const defaultPort = "8080"
 
 func main() {
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
-	resolver := urlresolver.New(http.DefaultTransport)
+	resolver := urlresolver.New(safetransport.New())
 	handler := applyMiddleware(httphandler.New(resolver), logger)
 
 	port := os.Getenv("PORT")
