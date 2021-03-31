@@ -31,7 +31,8 @@ type titleTestCase struct {
 }
 
 func TestFindTitle(t *testing.T) {
-	testCases := loadTitleTestCases(t)
+	maxBodySize := 1024 // simulate maxBodySize of 1kb for testing purposes
+	testCases := loadTitleTestCases(t, maxBodySize)
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
 			title := findTitle(tc.body)
@@ -345,7 +346,7 @@ func TestResolver(t *testing.T) {
 				w.Header().Set("Content-Encoding", "gzip")
 				w2 := gzip.NewWriter(w)
 				defer w2.Close()
-				body := fmt.Sprintf("<html><head><title>Iñtërnâtiônàlizætiøn</title></head><body>%s</body></html>", strings.Repeat("*", maxBodySize*10))
+				body := fmt.Sprintf("<html><head><title>Iñtërnâtiônàlizætiøn</title></head><body>%s</body></html>", strings.Repeat("*", maxBodySize*2))
 				mustWriteAll(t, w2, body)
 			},
 			givenURL: "/foo",
@@ -362,7 +363,7 @@ func TestResolver(t *testing.T) {
 			defer srv.Close()
 
 			resolver := New(http.DefaultTransport)
-			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
 			defer cancel()
 
 			givenURL := renderURL(srv.URL, tc.givenURL)
@@ -469,7 +470,7 @@ func TestPrepareRequest(t *testing.T) {
 	})
 }
 
-func loadTitleTestCases(t *testing.T) map[string]titleTestCase {
+func loadTitleTestCases(t *testing.T, maxBodySize int) map[string]titleTestCase {
 	t.Helper()
 
 	paths, err := filepath.Glob("./testdata/*.html")

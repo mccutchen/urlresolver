@@ -22,7 +22,7 @@ import (
 
 const (
 	maxRedirects = 10
-	maxBodySize  = 1024 // we'll read 1kb of body to find title
+	maxBodySize  = 500 * 1024 // we'll read 500kb of body to find title
 )
 
 // Not very sportsmanlike, but basically effective at letting us fetch page
