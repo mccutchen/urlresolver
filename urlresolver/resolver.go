@@ -100,7 +100,11 @@ func (r *Resolver) checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= maxRedirects {
 		return http.ErrUseLastResponse
 	}
-	// Ugly hack to work around forbes interstitial
+	// Work around instagram auth redirect
+	if strings.Contains(req.URL.String(), "instagram.com/accounts/login/") {
+		return http.ErrUseLastResponse
+	}
+	// Work around forbes paywall interstitial
 	if strings.Contains(req.URL.String(), "forbes.com/forbes/welcome") {
 		return http.ErrUseLastResponse
 	}
