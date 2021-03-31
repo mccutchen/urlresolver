@@ -66,14 +66,6 @@ var (
 		regexp.MustCompile(`(^|\.)youtube\.com$`): regexp.MustCompile(`^(v|p|t|list)$`),
 	}
 
-	// Fragment identifiers will be preserved for URLs matching these patterns
-	// (because these sites rely on JavaScript to parse the fragment from the
-	// URL to render the actual page).
-	allowFragmentPattern = listToRegexp(`^(`, `)$`, []string{
-		`groups\.google\.com`,
-		`images\.nasa\.gov`,
-	})
-
 	// All query params will be stripped from these domains, which tend to be
 	// content-focused web sites.
 	//
@@ -87,6 +79,7 @@ var (
 		`economist\.com`,
 		`grantland\.com`,
 		`huffingtonpost\.com`,
+		`instagram\.com`,
 		`newyorker\.com`,
 		`nymag\.com`,
 		`nytimes\.com`,
@@ -94,6 +87,7 @@ var (
 		`techcrunch\.com`,
 		`theguardian\.com`,
 		`theonion\.com`,
+		`twitter\.com`,
 		`vanityfair\.com`,
 		`vulture\.com`,
 		`washingtonpost\.com`,
@@ -135,7 +129,7 @@ func Normalize(u *url.URL) string {
 // Clean removes unnecessary query params and fragment identifiers from a URL
 func Clean(u *url.URL) *url.URL {
 	u.RawQuery = filterParams(u).Encode()
-	u.Fragment = filterFragment(u)
+	u.Fragment = ""
 	return u
 }
 
@@ -173,13 +167,6 @@ func shouldExcludeParam(domain string, param string) bool {
 
 	// Default to include params
 	return false
-}
-
-func filterFragment(u *url.URL) string {
-	if allowFragmentPattern.MatchString(u.Hostname()) {
-		return u.Fragment
-	}
-	return ""
 }
 
 func listToRegexp(prefix string, suffix string, patterns []string) *regexp.Regexp {

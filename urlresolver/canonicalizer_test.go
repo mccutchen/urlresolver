@@ -81,18 +81,6 @@ func TestCanonicalize(t *testing.T) {
 			expected: "http://mybuzzfeed.com/foo?a=1&b=2&c=3",
 		},
 
-		// Fragment identifier preservation
-		{
-			name:     "google groups fragments allowed",
-			given:    "https://groups.google.com/forum/#!forum/nsq-users",
-			expected: "https://groups.google.com/forum/#!forum/nsq-users",
-		},
-		{
-			name:     "nasa images fragments allowed",
-			given:    "https://images.nasa.gov/#/details-0101760.html",
-			expected: "https://images.nasa.gov/#/details-0101760.html",
-		},
-
 		// Params stripped from any domain
 		{
 			name:     "tracking params are stripped",
