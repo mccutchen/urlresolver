@@ -63,7 +63,7 @@ func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Str("url", givenURL).Msg("error resolving url")
 		if result.ResolvedURL == "" {
-			sendError(w, "Error resolving URL", http.StatusInternalServerError)
+			sendError(w, "Error resolving URL", http.StatusBadGateway)
 			return
 		}
 	}
