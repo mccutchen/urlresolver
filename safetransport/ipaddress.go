@@ -63,7 +63,6 @@ func isIPv4Reserved(address net.IP) bool {
 func isPublicIPAddress(address net.IP) bool {
 	if address.To4() != nil {
 		return !isIPv4Reserved(address)
-	} else {
-		return isIPv6GlobalUnicast(address)
 	}
+	return isIPv6GlobalUnicast(address)
 }

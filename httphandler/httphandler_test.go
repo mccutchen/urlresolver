@@ -189,7 +189,7 @@ func TestLookup(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
-			r := newLookupRequest(t, ctx, remoteSrv, tc.remotePath)
+			r := newLookupRequest(ctx, t, remoteSrv, tc.remotePath)
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, r)
 
@@ -216,7 +216,7 @@ func TestLookup(t *testing.T) {
 	}
 }
 
-func newLookupRequest(t *testing.T, ctx context.Context, remoteSrv *httptest.Server, remotePath string) *http.Request {
+func newLookupRequest(ctx context.Context, t *testing.T, remoteSrv *httptest.Server, remotePath string) *http.Request {
 	t.Helper()
 
 	params := url.Values{}
