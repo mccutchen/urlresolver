@@ -17,6 +17,7 @@ import (
 	"github.com/andybalholm/brotli"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
+	"golang.org/x/sync/singleflight"
 )
 
 const (
@@ -43,7 +44,8 @@ type Result struct {
 // New creates a new Resolver that will use the given transport.
 func New(transport http.RoundTripper) *Resolver {
 	return &Resolver{
-		transport: transport,
+		transport:    transport,
+		resolveGroup: &singleflight.Group{},
 	}
 }
 
@@ -51,12 +53,20 @@ func New(transport http.RoundTripper) *Resolver {
 // and canonicalizing the resulting final URL, and attempting to extract the
 // title from URLs that resolve to HTML content.
 type Resolver struct {
-	transport http.RoundTripper
+	transport    http.RoundTripper
+	resolveGroup *singleflight.Group
 }
 
 // Resolve resolves any redirects for a URL and attempts to extract the title
 // from the final response body
 func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
+	v, err, _ := r.resolveGroup.Do(givenURL, func() (interface{}, error) {
+		return r.doResolve(ctx, givenURL)
+	})
+	return v.(Result), err
+}
+
+func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
 	req, err := prepareRequest(ctx, givenURL)
 	if err != nil {
 		return Result{}, err
