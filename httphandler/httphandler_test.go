@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mccutchen/urlmetadata/urlresolver"
+	"github.com/mccutchen/urlresolver/urlresolver"
 )
 
 func TestRouting(t *testing.T) {

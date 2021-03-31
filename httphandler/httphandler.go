@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/mccutchen/urlmetadata/urlresolver"
+	"github.com/mccutchen/urlresolver/urlresolver"
 	"github.com/rs/zerolog/hlog"
 )
 

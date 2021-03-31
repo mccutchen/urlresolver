@@ -23,9 +23,9 @@ GO_SOURCES = $(wildcard **/*.go)
 # =============================================================================
 # build
 # =============================================================================
-build: $(DIST_PATH)/urlmetadata
+build: $(DIST_PATH)/urlresolver
 
-$(DIST_PATH)/urlmetadata: $(GO_SOURCES)
+$(DIST_PATH)/urlresolver: $(GO_SOURCES)
 	mkdir -p $(DIST_PATH)
 	CGO_ENABLED=0 go build -o $(DIST_PATH)/urlresolver ./cmd/urlresolver
 

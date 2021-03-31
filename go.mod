@@ -1,4 +1,4 @@
-module github.com/mccutchen/urlmetadata
+module github.com/mccutchen/urlresolver
 
 go 1.15
 

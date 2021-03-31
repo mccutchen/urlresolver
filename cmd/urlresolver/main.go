@@ -9,9 +9,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 
-	"github.com/mccutchen/urlmetadata/httphandler"
-	"github.com/mccutchen/urlmetadata/safetransport"
-	"github.com/mccutchen/urlmetadata/urlresolver"
+	"github.com/mccutchen/urlresolver/httphandler"
+	"github.com/mccutchen/urlresolver/safetransport"
+	"github.com/mccutchen/urlresolver/urlresolver"
 )
 
 const defaultPort = "8080"
