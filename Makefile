@@ -1,7 +1,5 @@
 .PHONY: clean deploy deps gcloud-auth image imagepush lint run stagedeploy test testci testcover
 
-# The version that will be used in docker tags (e.g. to push a
-# urlresolver:latest image use `make imagepush VERSION=latest)`
 VERSION ?= $(shell git rev-parse --short HEAD)
 
 # Built binaries will be placed here
@@ -72,17 +70,6 @@ watch: $(TOOL_REFLEX)
 # =============================================================================
 deploy:
 	flyctl deploy --strategy=rolling
-
-
-# =============================================================================
-# docker images
-# =============================================================================
-image:
-	docker build -t $(DOCKER_TAG_DOCKERHUB) -t $(DOCKER_TAG_GCLOUD) .
-
-imagepush: image
-	docker push $(DOCKER_TAG_GCLOUD)
-	docker push $(DOCKER_TAG_GCLOUD)
 
 
 # =============================================================================
