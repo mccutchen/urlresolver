@@ -43,11 +43,7 @@ func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
-	var (
-		givenURL = r.URL.Query().Get("url")
-		referer  = r.URL.Query().Get("referer")
-	)
-
+	givenURL := r.URL.Query().Get("url")
 	if givenURL == "" {
 		sendError(w, "Missing arg url", http.StatusBadRequest)
 		return
@@ -63,7 +59,7 @@ func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
 	//
 	// So, we always log the error, but we only return an error response if we
 	// did not manage to resolve the URL.
-	result, err := h.resolver.Resolve(r.Context(), givenURL, referer)
+	result, err := h.resolver.Resolve(r.Context(), givenURL)
 	if err != nil {
 		hlog.FromRequest(r).Error().Err(err).Str("url", givenURL).Msg("error resolving url")
 		if result.ResolvedURL == "" {

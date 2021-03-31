@@ -368,7 +368,7 @@ func TestResolver(t *testing.T) {
 				tc.wantResult.ResolvedURL = renderURL(srv.URL, tc.wantResult.ResolvedURL)
 			}
 
-			result, err := resolver.Resolve(ctx, givenURL, "")
+			result, err := resolver.Resolve(ctx, givenURL)
 			if tc.wantErr != nil {
 				if err == nil {
 					t.Fatalf("expected error %q, got nil", tc.wantErr)
@@ -410,7 +410,7 @@ func TestPrepareRequest(t *testing.T) {
 	ctx := context.Background()
 
 	t.Run("default headers", func(t *testing.T) {
-		req, err := prepareRequest(ctx, "http://example.org", "")
+		req, err := prepareRequest(ctx, "http://example.org")
 		if err != nil {
 			t.Errorf("unexpected error: %s", err)
 		}
@@ -421,19 +421,8 @@ func TestPrepareRequest(t *testing.T) {
 		}
 	})
 
-	t.Run("custom referrer", func(t *testing.T) {
-		referer := "http://referer.example.org/"
-		req, err := prepareRequest(ctx, "http://example.org", referer)
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
-		}
-		if value := req.Header.Get("Referer"); value != referer {
-			t.Errorf("expected custom referer %#v, got %#v", referer, value)
-		}
-	})
-
 	t.Run("invalid url", func(t *testing.T) {
-		_, err := prepareRequest(ctx, "http://example.org/foo%E", "")
+		_, err := prepareRequest(ctx, "http://example.org/foo%E")
 		if err == nil {
 			t.Error("did not get expected error")
 		}

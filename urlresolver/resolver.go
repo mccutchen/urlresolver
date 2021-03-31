@@ -56,8 +56,8 @@ type Resolver struct {
 
 // Resolve resolves any redirects for a URL and attempts to extract the title
 // from the final response body
-func (r *Resolver) Resolve(ctx context.Context, givenURL string, referer string) (Result, error) {
-	req, err := prepareRequest(ctx, givenURL, referer)
+func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
+	req, err := prepareRequest(ctx, givenURL)
 	if err != nil {
 		return Result{}, err
 	}
@@ -109,7 +109,7 @@ func (r *Resolver) httpClient() *http.Client {
 	}
 }
 
-func prepareRequest(ctx context.Context, url string, referer string) (*http.Request, error) {
+func prepareRequest(ctx context.Context, url string) (*http.Request, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, err
@@ -117,9 +117,6 @@ func prepareRequest(ctx context.Context, url string, referer string) (*http.Requ
 
 	for k, v := range defaultHeaders {
 		req.Header.Set(k, v)
-	}
-	if referer != "" {
-		req.Header.Set("Referer", referer)
 	}
 
 	return req, nil
