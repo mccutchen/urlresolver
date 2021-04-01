@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"golang.org/x/net/html"
 )
@@ -32,10 +33,13 @@ type OembedFetcher struct {
 }
 
 // New creates a new OembedFetcher
-func New() *OembedFetcher {
+func New(transport http.RoundTripper) *OembedFetcher {
 	return &OembedFetcher{
-		baseURL:    "https://publish.twitter.com/oembed",
-		httpClient: newHTTPClient(),
+		baseURL: "https://publish.twitter.com/oembed",
+		httpClient: &http.Client{
+			Transport: transport,
+			Timeout:   5 * time.Millisecond,
+		},
 	}
 }
 

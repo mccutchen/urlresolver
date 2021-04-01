@@ -178,7 +178,7 @@ func TestFetch(t *testing.T) {
 			srv := httptest.NewServer(tc.handler(t))
 			defer srv.Close()
 
-			fetcher := New()
+			fetcher := New(http.DefaultTransport)
 			fetcher.baseURL = srv.URL + "/oembed"
 
 			timeout := tc.timeout

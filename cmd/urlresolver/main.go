@@ -19,9 +19,11 @@ const defaultPort = "8080"
 
 func main() {
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+
+	transport := safetransport.New()
 	resolver := urlresolver.New(
-		safetransport.New(),
-		twitter.New(),
+		transport,
+		twitter.New(transport),
 	)
 	handler := applyMiddleware(httphandler.New(resolver), logger)
 
