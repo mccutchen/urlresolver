@@ -48,6 +48,7 @@ func TestResolver(t *testing.T) {
 		name        string
 		handlerFunc http.HandlerFunc
 		givenURL    string
+		timeout     time.Duration
 		wantResult  Result
 		wantErr     error
 	}{
@@ -132,11 +133,25 @@ func TestResolver(t *testing.T) {
 					http.Redirect(w, r, "https://www.forbes.com/forbes/welcome/", http.StatusFound)
 					return
 				}
-				w.Write([]byte(`<html><head><title>forbes, yo</title></head></html>`))
 			},
 			givenURL: "/forbes",
 			wantResult: Result{
 				ResolvedURL: "/forbes",
+				Title:       "",
+			},
+		},
+		{
+			// https://github.com/mccutchen/thresholderbot/pull/63
+			name: "instagram auth detection",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/instagram" {
+					http.Redirect(w, r, "https://www.instagram.com/accounts/login/", http.StatusFound)
+					return
+				}
+			},
+			givenURL: "/instagram",
+			wantResult: Result{
+				ResolvedURL: "/instagram",
 				Title:       "",
 			},
 		},
@@ -151,6 +166,7 @@ func TestResolver(t *testing.T) {
 				}
 			},
 			givenURL: "/foo",
+			timeout:  10 * time.Millisecond,
 			wantErr:  context.DeadlineExceeded,
 		},
 		{
@@ -172,6 +188,7 @@ func TestResolver(t *testing.T) {
 				}
 			},
 			givenURL: "/foo",
+			timeout:  20 * time.Millisecond,
 			wantResult: Result{
 				ResolvedURL: "/bar", // note, we still got a usefully resolved URL, despite the expected error
 				Title:       "",
@@ -363,7 +380,12 @@ func TestResolver(t *testing.T) {
 			defer srv.Close()
 
 			resolver := New(http.DefaultTransport)
-			ctx, cancel := context.WithTimeout(context.Background(), 20*time.Millisecond)
+
+			timeout := tc.timeout
+			if timeout == 0 {
+				timeout = 1 * time.Second
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
 			givenURL := renderURL(srv.URL, tc.givenURL)
