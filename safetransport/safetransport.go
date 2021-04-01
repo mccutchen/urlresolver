@@ -23,7 +23,7 @@ import (
 
 const (
 	// dialer
-	dialTimeout = 10 * time.Second
+	dialTimeout = 2 * time.Second
 	keepAlive   = 30 * time.Second
 
 	// transport
@@ -31,7 +31,7 @@ const (
 	idleConnTimeout       = 90 * time.Second
 	maxIdleConns          = 100
 	maxIdleConnsPerHost   = 100
-	tlsHandshakeTimeout   = 10 * time.Second
+	tlsHandshakeTimeout   = 2 * time.Second
 )
 
 // New creates a new http.Transport configured to reject attempts to dial

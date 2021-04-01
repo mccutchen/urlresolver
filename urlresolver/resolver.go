@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/andybalholm/brotli"
 	"golang.org/x/net/html"
@@ -24,8 +25,9 @@ import (
 )
 
 const (
-	maxRedirects = 10
-	maxBodySize  = 500 * 1024 // we'll read 500kb of body to find title
+	maxRedirects   = 10
+	maxBodySize    = 500 * 1024 // we'll read 500kb of body to find title
+	requestTimeout = 5 * time.Second
 )
 
 // Not very sportsmanlike, but basically effective at letting us fetch page
@@ -145,6 +147,7 @@ func (r *Resolver) httpClient() *http.Client {
 		CheckRedirect: r.checkRedirect,
 		Jar:           cookieJar,
 		Transport:     r.transport,
+		Timeout:       requestTimeout,
 	}
 }
 
