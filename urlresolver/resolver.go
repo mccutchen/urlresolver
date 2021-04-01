@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/andybalholm/brotli"
+	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
 	"golang.org/x/sync/singleflight"
@@ -211,5 +212,5 @@ func findTitle(body []byte) string {
 	if len(matches) < 2 {
 		return ""
 	}
-	return string(bytes.TrimSpace(matches[1]))
+	return html.UnescapeString(string(bytes.TrimSpace(matches[1])))
 }
