@@ -11,6 +11,7 @@ import (
 
 	"github.com/mccutchen/urlresolver/httphandler"
 	"github.com/mccutchen/urlresolver/safetransport"
+	"github.com/mccutchen/urlresolver/twitter"
 	"github.com/mccutchen/urlresolver/urlresolver"
 )
 
@@ -18,7 +19,10 @@ const defaultPort = "8080"
 
 func main() {
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
-	resolver := urlresolver.New(safetransport.New())
+	resolver := urlresolver.New(
+		safetransport.New(),
+		twitter.New(),
+	)
 	handler := applyMiddleware(httphandler.New(resolver), logger)
 
 	port := os.Getenv("PORT")

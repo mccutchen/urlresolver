@@ -19,6 +19,8 @@ import (
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/mccutchen/urlresolver/twitter"
 )
 
 const (
@@ -43,10 +45,11 @@ type Result struct {
 }
 
 // New creates a new Resolver that will use the given transport.
-func New(transport http.RoundTripper) *Resolver {
+func New(transport http.RoundTripper, tweetFetcher twitter.TweetFetcher) *Resolver {
 	return &Resolver{
 		transport:    transport,
 		resolveGroup: &singleflight.Group{},
+		tweetFetcher: tweetFetcher,
 	}
 }
 
@@ -56,6 +59,7 @@ func New(transport http.RoundTripper) *Resolver {
 type Resolver struct {
 	transport    http.RoundTripper
 	resolveGroup *singleflight.Group
+	tweetFetcher twitter.TweetFetcher
 }
 
 // Resolve resolves any redirects for a URL and attempts to extract the title
@@ -84,10 +88,16 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 
 	// At this point, we have at least resolved and canonicalized the URL,
 	// whether or not we can successfully extract a title.
-	result := Result{
-		ResolvedURL: Canonicalize(resp.Request.URL),
+	resolvedURL := Canonicalize(resp.Request.URL)
+
+	// Special case for tweet URLs, which we ask Twitter to help us resolve
+	if tweetURL, ok := twitter.MatchTweetURL(resolvedURL); ok {
+		return r.resolveTweet(ctx, tweetURL)
 	}
 
+	result := Result{
+		ResolvedURL: resolvedURL,
+	}
 	title, err := maybeParseTitle(resp)
 	if err != nil {
 		return result, err
@@ -95,6 +105,20 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 
 	result.Title = title
 	return result, err
+}
+
+func (r *Resolver) resolveTweet(ctx context.Context, tweetURL string) (Result, error) {
+	tweet, err := r.tweetFetcher.Fetch(ctx, tweetURL)
+	if err != nil {
+		// We have a resolved tweet URL, so we return a partial result along
+		// with the error
+		return Result{ResolvedURL: tweetURL}, err
+	}
+
+	return Result{
+		ResolvedURL: tweet.URL,
+		Title:       tweet.Text,
+	}, nil
 }
 
 func (r *Resolver) checkRedirect(req *http.Request, via []*http.Request) error {

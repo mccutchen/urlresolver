@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"github.com/mccutchen/urlresolver/twitter"
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -379,7 +380,7 @@ func TestResolver(t *testing.T) {
 			srv := httptest.NewServer(tc.handlerFunc)
 			defer srv.Close()
 
-			resolver := New(http.DefaultTransport)
+			resolver := New(http.DefaultTransport, nil)
 
 			timeout := tc.timeout
 			if timeout == 0 {
@@ -426,7 +427,7 @@ func TestResolver(t *testing.T) {
 			ResolvedURL: srv.URL,
 		}
 
-		resolver := New(http.DefaultTransport)
+		resolver := New(http.DefaultTransport, nil)
 
 		var wg sync.WaitGroup
 		for i := 0; i < 4; i++ {
@@ -448,6 +449,109 @@ func TestResolver(t *testing.T) {
 			t.Fatalf("expected 1 total request, got %d", counter)
 		}
 	})
+}
+
+func TestResolveTweets(t *testing.T) {
+	okFetcher := &testTweetFetcher{
+		fetch: func(ctx context.Context, tweetURL string) (twitter.Tweet, error) {
+			return twitter.Tweet{
+				URL:  tweetURL,
+				Text: "tweet text",
+			}, nil
+		},
+	}
+	errFetcher := &testTweetFetcher{
+		fetch: func(ctx context.Context, tweetURL string) (twitter.Tweet, error) {
+			return twitter.Tweet{}, errors.New("twitter error")
+		},
+	}
+
+	// this transport will prevent Resolve from making real requests to
+	// Twitter, so that these tests may safely redirect to Twitter URLs without
+	// actually triggering external requsts.
+	twitterInterceptTransport := &testTransport{
+		roundTrip: func(r *http.Request) (*http.Response, error) {
+			if strings.Contains(r.URL.Host, "twitter.com") {
+				return &http.Response{
+					StatusCode: 200,
+					Request:    r,
+				}, nil
+			}
+			return http.DefaultTransport.RoundTrip(r)
+		},
+	}
+
+	testCases := map[string]struct {
+		originalURL  string
+		fullTweetURL string
+		tweetFetcher twitter.TweetFetcher
+		wantErr      error
+		wantResult   Result
+	}{
+		"ok": {
+			originalURL:  "/redirect-to-tweet",
+			fullTweetURL: "https://twitter.com/username/status/1234/photos/1?foo=bar",
+			tweetFetcher: okFetcher,
+			wantResult: Result{
+				ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
+				Title:       "tweet text",
+			},
+		},
+		"error fetching tweet": {
+			originalURL:  "/redirect-to-tweet",
+			fullTweetURL: "https://twitter.com/username/status/1234/photos/1?foo=bar",
+			tweetFetcher: errFetcher,
+			wantErr:      errors.New("twitter error"),
+			// despite expected error, we still want a partial result
+			wantResult: Result{
+				ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
+				Title:       "",
+			},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				http.Redirect(w, r, tc.fullTweetURL, http.StatusFound)
+			}))
+			defer srv.Close()
+
+			resolver := New(twitterInterceptTransport, tc.tweetFetcher)
+
+			result, err := resolver.Resolve(context.Background(), srv.URL)
+			if err != nil && tc.wantErr == nil {
+				t.Errorf("unexepcted error: %s", err)
+			} else if tc.wantErr != nil && err == nil {
+				t.Errorf("expected error %s, got nil", tc.wantErr)
+			} else if tc.wantErr != nil && err != nil {
+				if tc.wantErr.Error() != err.Error() {
+					t.Errorf("expected error %s, got %s", tc.wantErr, err)
+				}
+			}
+
+			if !reflect.DeepEqual(result, tc.wantResult) {
+				t.Fatalf("wanted result %#v, got %#v", tc.wantResult, result)
+			}
+		})
+	}
+
+}
+
+type testTweetFetcher struct {
+	fetch func(context.Context, string) (twitter.Tweet, error)
+}
+
+func (f *testTweetFetcher) Fetch(ctx context.Context, tweetURL string) (twitter.Tweet, error) {
+	return f.fetch(ctx, tweetURL)
+}
+
+type testTransport struct {
+	roundTrip func(*http.Request) (*http.Response, error)
+}
+
+func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	return t.roundTrip(req)
 }
 
 // renderURL takes a dynamic httptest.Server URL string src and an "expected"
