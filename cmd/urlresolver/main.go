@@ -6,6 +6,8 @@ import (
 	"os"
 	"time"
 
+	"github.com/honeycombio/beeline-go"
+	"github.com/honeycombio/beeline-go/wrappers/hnynethttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 
@@ -19,8 +21,9 @@ const defaultPort = "8080"
 
 func main() {
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
+	initHoneycomb()
 
-	transport := safetransport.New()
+	transport := hnynethttp.WrapRoundTripper(safetransport.New())
 	resolver := urlresolver.New(
 		transport,
 		twitter.New(transport),
@@ -40,6 +43,7 @@ func main() {
 func applyMiddleware(h http.Handler, l zerolog.Logger) http.Handler {
 	h = hlog.AccessHandler(accessLogger)(h)
 	h = hlog.NewHandler(l)(h)
+	h = hnynethttp.WrapHandler(h)
 	return h
 }
 
@@ -52,4 +56,18 @@ func accessLogger(r *http.Request, status int, size int, duration time.Duration)
 		Int("size", size).
 		Dur("duration", duration).
 		Send()
+}
+
+func initHoneycomb() {
+	var (
+		apiKey  = os.Getenv("HONEYCOMB_API_KEY")
+		logOnly = apiKey == ""
+	)
+
+	beeline.Init(beeline.Config{
+		WriteKey:    apiKey,
+		Dataset:     "urlresolver",
+		ServiceName: "urlresolver",
+		STDOUT:      logOnly,
+	})
 }
