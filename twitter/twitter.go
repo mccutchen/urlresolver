@@ -38,7 +38,7 @@ func New(transport http.RoundTripper) *OembedFetcher {
 		baseURL: "https://publish.twitter.com/oembed",
 		httpClient: &http.Client{
 			Transport: transport,
-			Timeout:   5 * time.Millisecond,
+			Timeout:   5 * time.Second,
 		},
 	}
 }
