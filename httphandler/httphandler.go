@@ -8,6 +8,8 @@ import (
 
 	"github.com/mccutchen/urlresolver/urlresolver"
 	"github.com/rs/zerolog/hlog"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // New creates a new Handler.
@@ -39,16 +41,25 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	_, span := trace.SpanFromContext(ctx).Tracer().Start(ctx, "/")
+	defer span.End()
+
 	fmt.Fprintln(w, "Hello, world")
 }
 
 func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	span := trace.SpanFromContext(ctx)
+
 	givenURL := r.URL.Query().Get("url")
 	if givenURL == "" {
+		span.SetAttributes(attribute.String("error", "missing_arg_url"))
 		sendError(w, "Missing arg url", http.StatusBadRequest)
 		return
 	}
 	if !isValidInput(givenURL) {
+		span.SetAttributes(attribute.String("error", "invalid_url"))
 		sendError(w, "Invalid url", http.StatusBadRequest)
 		return
 	}
@@ -59,13 +70,15 @@ func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
 	//
 	// So, we always log the error, but we only return an error response if we
 	// did not manage to resolve the URL.
-	result, err := h.resolver.Resolve(r.Context(), givenURL)
+	result, err := h.resolver.Resolve(ctx, givenURL)
 	if err != nil {
+		span.SetAttributes(attribute.String("error", err.Error()))
 		hlog.FromRequest(r).Error().Err(err).Str("url", givenURL).Msg("error resolving url")
 		if result.ResolvedURL == "" {
 			sendError(w, "Error resolving URL", http.StatusBadGateway)
 			return
 		}
+		span.SetAttributes(attribute.Bool("app.resolved_url_not_title", true))
 	}
 
 	json.NewEncoder(w).Encode(result)

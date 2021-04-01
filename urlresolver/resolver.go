@@ -16,6 +16,8 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
@@ -67,9 +69,17 @@ type Resolver struct {
 // Resolve resolves any redirects for a URL and attempts to extract the title
 // from the final response body
 func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
-	v, err, _ := r.resolveGroup.Do(givenURL, func() (interface{}, error) {
+	span := trace.SpanFromContext(ctx)
+
+	v, err, coalesced := r.resolveGroup.Do(givenURL, func() (interface{}, error) {
 		return r.doResolve(ctx, givenURL)
 	})
+
+	span.SetAttributes(attribute.Bool("app.resolve_coalesced", coalesced))
+	if err != nil {
+		span.SetAttributes(attribute.String("error", err.Error()))
+	}
+
 	return v.(Result), err
 }
 
