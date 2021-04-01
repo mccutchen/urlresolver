@@ -17,7 +17,7 @@ TOOL_GOLINT      := $(TOOL_BIN_DIR)/golint
 TOOL_REFLEX      := $(TOOL_BIN_DIR)/reflex
 TOOL_STATICCHECK := $(TOOL_BIN_DIR)/staticcheck
 
-GO_SOURCES = $(wildcard **/*.go)
+GO_SOURCES = $(wildcard **/*.go) $(wildcard cmd/**/*.go)
 
 # =============================================================================
 # build
