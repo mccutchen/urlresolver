@@ -14,6 +14,7 @@ TEST_ARGS     ?= -race
 # Tool dependencies
 TOOL_BIN_DIR     ?= $(shell go env GOPATH)/bin
 TOOL_GOLINT      := $(TOOL_BIN_DIR)/golint
+TOOL_REFLEX      := $(TOOL_BIN_DIR)/reflex
 TOOL_STATICCHECK := $(TOOL_BIN_DIR)/staticcheck
 
 GO_SOURCES = $(wildcard **/*.go)
