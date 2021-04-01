@@ -70,6 +70,10 @@ func (f *OembedFetcher) Fetch(ctx context.Context, tweetURL string) (Tweet, erro
 		return Tweet{}, fmt.Errorf("invalid json in twitter oembed response: %w", err)
 	}
 
+	if oembedResult.URL == "" || oembedResult.HTML == "" {
+		return Tweet{}, fmt.Errorf("unexpected json format in twitter oembed response: %q", string(body))
+	}
+
 	return Tweet{
 		URL:  oembedResult.URL,
 		Text: extractTweetText(oembedResult.HTML),

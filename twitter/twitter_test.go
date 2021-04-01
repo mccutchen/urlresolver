@@ -1,8 +1,15 @@
 package twitter
 
 import (
+	"context"
+	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
 	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestMatchTweetURL(t *testing.T) {
@@ -70,5 +77,126 @@ func TestExtractTweetText(t *testing.T) {
 }
 
 func TestFetch(t *testing.T) {
+	const tweetURL = "https://twitter.com/thresholderbot/status/1341197329550995456"
 
+	testCases := map[string]struct {
+		handler    func(*testing.T) http.HandlerFunc
+		timeout    time.Duration
+		wantResult Tweet
+		wantErr    error
+	}{
+		"ok": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					gotURL := r.URL.Query().Get("url")
+					assert.Equal(t, tweetURL, gotURL)
+
+					w.Write([]byte(`{
+  "url": "https://twitter.com/thresholderbot/status/1341197329550995456",
+  "author_name": "Thresholderbot",
+  "author_url": "https://twitter.com/thresholderbot",
+  "html": "<blockquote class=\"twitter-tweet\"><p lang=\"en\" dir=\"ltr\">Hi. As the year draws to a close, I just wanted to apologize for (probably) turning into a firehouse of bad news aimed directly into your inbox. Rest assured, those responsible have been sacked. <a href=\"https://t.co/o6S0p7s3Ce\">pic.twitter.com/o6S0p7s3Ce</a></p>&mdash; Thresholderbot (@thresholderbot) <a href=\"https://twitter.com/thresholderbot/status/1341197329550995456?ref_src=twsrc%5Etfw\">December 22, 2020</a></blockquote>\n<script async src=\"https://platform.twitter.com/widgets.js\" charset=\"utf-8\"></script>\n",
+  "width": 550,
+  "height": null,
+  "type": "rich",
+  "cache_age": "3153600000",
+  "provider_name": "Twitter",
+  "provider_url": "https://twitter.com",
+  "version": "1.0"
+}
+`))
+				}
+			},
+			wantResult: Tweet{
+				Text: "Hi. As the year draws to a close, I just wanted to apologize for (probably) turning into a firehouse of bad news aimed directly into your inbox. Rest assured, those responsible have been sacked. pic.twitter.com/o6S0p7s3Ce",
+				URL:  tweetURL,
+			},
+		},
+		"timeout": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					select {
+					case <-time.After(10 * time.Second):
+					case <-r.Context().Done():
+					}
+				}
+			},
+			wantErr: errors.New("context deadline exceeded"),
+		},
+		"server error": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusInternalServerError)
+				}
+			},
+			wantErr: errors.New("twitter oembed error: 500"),
+		},
+		"bad JSON": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte("["))
+				}
+			},
+			wantErr: errors.New("invalid json in twitter oembed response"),
+		},
+		"nonsense JSON": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte("{}"))
+				}
+			},
+			wantErr: errors.New("unexpected json format"),
+		},
+		"incomplete HTML": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.Write([]byte(`{
+  "url": "https://twitter.com/thresholderbot/status/1341197329550995456",
+  "author_name": "Thresholderbot",
+  "author_url": "https://twitter.com/thresholderbot",
+  "html": "<blockquote class=\"twitter-tweet\"></blockquote>\n<script async src=\"https://platform.twitter.com/widgets.js\" charset=\"utf-8\"></script>\n",
+  "width": 550,
+  "height": null,
+  "type": "rich",
+  "cache_age": "3153600000",
+  "provider_name": "Twitter",
+  "provider_url": "https://twitter.com",
+  "version": "1.0"
+}
+`))
+				}
+			},
+			wantResult: Tweet{
+				Text: "",
+				URL:  tweetURL,
+			},
+		},
+	}
+
+	for name, tc := range testCases {
+		t.Run(name, func(t *testing.T) {
+			srv := httptest.NewServer(tc.handler(t))
+			defer srv.Close()
+
+			fetcher := New()
+			fetcher.baseURL = srv.URL + "/oembed"
+
+			timeout := tc.timeout
+			if timeout == 0 {
+				timeout = 1 * time.Second
+			}
+
+			ctx, cancel := context.WithTimeout(context.Background(), timeout)
+			defer cancel()
+
+			result, err := fetcher.Fetch(ctx, tweetURL)
+			if tc.wantErr != nil {
+				assert.NotNil(t, err, "expected non-nil error")
+				assert.Contains(t, err.Error(), tc.wantErr.Error())
+			} else {
+				assert.NoError(t, err)
+			}
+			assert.Equal(t, tc.wantResult, result)
+		})
+	}
 }
