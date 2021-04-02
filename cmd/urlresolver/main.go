@@ -28,18 +28,34 @@ import (
 	"github.com/mccutchen/urlresolver/urlresolver"
 )
 
-const defaultPort = "8080"
+const (
+	defaultCacheSize = 1024
+	defaultPort      = "8080"
+)
 
 func main() {
 	logger := zerolog.New(os.Stderr).With().Timestamp().Logger()
 	stopTelemetry := initTelemetry(logger)
 	defer stopTelemetry(context.Background())
 
+	cache, err := urlresolver.NewLRUCache(defaultCacheSize)
+	if err != nil {
+		logger.Fatal().Err(err).Msg("error initializing cache")
+	}
+
 	transport := telemetry.WrapTransport(safetransport.New())
-	resolver := urlresolver.New(
-		transport,
-		twitter.New(transport),
+
+	// Create a cached resolver that will coalesce requests
+	resolver := urlresolver.NewCachedResolver(
+		urlresolver.NewSingleflightResolver(
+			urlresolver.New(
+				transport,
+				twitter.New(transport),
+			),
+		),
+		cache,
 	)
+
 	handler := applyMiddleware(httphandler.New(resolver), logger)
 
 	port := os.Getenv("PORT")
