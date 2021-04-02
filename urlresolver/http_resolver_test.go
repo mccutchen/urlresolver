@@ -16,8 +16,6 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
-	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 
@@ -411,44 +409,6 @@ func TestResolver(t *testing.T) {
 			}
 		})
 	}
-
-	t.Run("request coalescing", func(t *testing.T) {
-		var counter int64
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			atomic.AddInt64(&counter, 1)
-			<-time.After(250 * time.Millisecond)
-			w.Header().Set("Content-Type", "text/html")
-			w.Write([]byte(`<html><head><title>title</title></head></html>`))
-		}))
-		defer srv.Close()
-
-		wantResult := Result{
-			Title:       "title",
-			ResolvedURL: srv.URL,
-		}
-
-		resolver := New(http.DefaultTransport, nil)
-
-		var wg sync.WaitGroup
-		for i := 0; i < 4; i++ {
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				result, err := resolver.Resolve(context.Background(), srv.URL)
-				if err != nil {
-					t.Errorf("unexpected error: %s", err)
-				}
-				if !reflect.DeepEqual(wantResult, result) {
-					t.Errorf("expected result %v, got %v", wantResult, result)
-				}
-			}()
-		}
-		wg.Wait()
-
-		if counter != 1 {
-			t.Fatalf("expected 1 total request, got %d", counter)
-		}
-	})
 }
 
 func TestResolveTweets(t *testing.T) {
