@@ -8,6 +8,9 @@ import (
 	"os"
 	"time"
 
+	"github.com/go-redis/cache/v8"
+	"github.com/go-redis/redis/extra/redisotel"
+	"github.com/go-redis/redis/v8"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
@@ -29,8 +32,8 @@ import (
 )
 
 const (
-	defaultCacheSize = 1024
-	defaultPort      = "8080"
+	defaultCacheTTL = 120 * time.Hour
+	defaultPort     = "8080"
 )
 
 func main() {
@@ -38,24 +41,7 @@ func main() {
 	stopTelemetry := initTelemetry(logger)
 	defer stopTelemetry(context.Background())
 
-	cache, err := resolver.NewLRUCache(defaultCacheSize)
-	if err != nil {
-		logger.Fatal().Err(err).Msg("error initializing cache")
-	}
-
-	transport := telemetry.WrapTransport(safetransport.New())
-
-	// Create a cached resolver that will coalesce requests
-	resolver := resolver.NewCachedResolver(
-		resolver.NewSingleflightResolver(
-			resolver.New(
-				transport,
-				twitter.New(transport),
-			),
-		),
-		cache,
-	)
-
+	resolver := initResolver(logger)
 	handler := applyMiddleware(httphandler.New(resolver), logger)
 
 	port := os.Getenv("PORT")
@@ -93,9 +79,43 @@ func accessLogger(r *http.Request, status int, size int, duration time.Duration)
 		Send()
 }
 
-type shutdownFunc func(context.Context) error
+func initResolver(logger zerolog.Logger) resolver.Resolver {
+	transport := telemetry.WrapTransport(safetransport.New())
+	redisCache := initRedisCache(logger)
 
-func initTelemetry(logger zerolog.Logger) shutdownFunc {
+	var r resolver.Resolver
+	r = resolver.NewSingleflightResolver(
+		resolver.New(
+			transport,
+			twitter.New(transport),
+		),
+	)
+	if redisCache != nil {
+		r = resolver.NewCachedResolver(r, resolver.NewRedisCache(redisCache, defaultCacheTTL))
+	}
+	return r
+}
+
+func initRedisCache(logger zerolog.Logger) *cache.Cache {
+	redisURL := os.Getenv("FLY_REDIS_CACHE_URL")
+	if redisURL == "" {
+		logger.Info().Msg("FLY_REDIS_CACHE_URL not set, cache disabled")
+		return nil
+	}
+
+	opt, err := redis.ParseURL(redisURL)
+	if err != nil {
+		logger.Error().Err(err).Msg("FLY_REDIS_CACHE_URL invalid, cache disabled")
+		return nil
+	}
+
+	client := redis.NewClient(opt)
+	client.AddHook(redisotel.TracingHook{})
+
+	return cache.New(&cache.Options{Redis: client})
+}
+
+func initTelemetry(logger zerolog.Logger) func(context.Context) error {
 	var (
 		apiKey  = os.Getenv("HONEYCOMB_API_KEY")
 		dataset = "urlresolver"

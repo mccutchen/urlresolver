@@ -2,9 +2,14 @@ package resolver
 
 import (
 	"context"
+	"crypto/sha256"
+	"fmt"
+	"time"
 
-	lru "github.com/hashicorp/golang-lru"
+	"github.com/go-redis/cache/v8"
 )
+
+const redisCacheVersion = "1"
 
 // Cache is a generic cache interface
 type Cache interface {
@@ -13,29 +18,39 @@ type Cache interface {
 	Name() string
 }
 
-type LRUCache struct {
-	cache *lru.ARCCache
+type RedisCache struct {
+	cache *cache.Cache
+	ttl   time.Duration
 }
 
-func NewLRUCache(size int) (*LRUCache, error) {
-	cache, err := lru.NewARC(size)
-	if err != nil {
-		return nil, err
+func NewRedisCache(cache *cache.Cache, ttl time.Duration) *RedisCache {
+	return &RedisCache{
+		cache: cache,
+		ttl:   ttl,
 	}
-	return &LRUCache{cache: cache}, nil
 }
 
-func (c *LRUCache) Add(ctx context.Context, key string, value Result) {
-	c.cache.Add(key, value)
+func (c *RedisCache) Add(ctx context.Context, key string, value Result) {
+	c.cache.Set(&cache.Item{
+		Ctx:   ctx,
+		Key:   redisCacheKey(key),
+		Value: value,
+		TTL:   c.ttl,
+	})
 }
 
-func (c *LRUCache) Get(ctx context.Context, key string) (value Result, ok bool) {
-	if val, ok := c.cache.Get(key); ok {
-		return val.(Result), true
+func (c *RedisCache) Get(ctx context.Context, key string) (Result, bool) {
+	var result Result
+	if err := c.cache.Get(ctx, redisCacheKey(key), &result); err != nil {
+		return Result{}, false
 	}
-	return Result{}, false
+	return result, true
 }
 
-func (c *LRUCache) Name() string {
-	return "LRUCache"
+func (c *RedisCache) Name() string {
+	return "redis"
+}
+
+func redisCacheKey(key string) string {
+	return fmt.Sprintf("cache:%s:%x", redisCacheVersion, sha256.Sum256([]byte(key)))
 }

@@ -6,7 +6,11 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 
+	"github.com/alicebob/miniredis/v2"
+	"github.com/go-redis/cache/v8"
+	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,9 +23,17 @@ func TestCachedResolver(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	cache, err := NewLRUCache(10)
+	redisSrv, err := miniredis.Run()
 	assert.NoError(t, err)
-	resolver := NewCachedResolver(New(http.DefaultTransport, nil), cache)
+	defer redisSrv.Close()
+
+	redisClient := redis.NewClient(&redis.Options{Addr: redisSrv.Addr()})
+	redisCache := cache.New(&cache.Options{Redis: redisClient})
+
+	resolver := NewCachedResolver(
+		New(http.DefaultTransport, nil),
+		NewRedisCache(redisCache, 10*time.Minute),
+	)
 
 	wantResult := Result{
 		Title:       "title",
