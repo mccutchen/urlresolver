@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"github.com/mccutchen/urlresolver/twitter"
+	"github.com/mccutchen/urlresolver/resolver/twitter"
 	"golang.org/x/text/encoding/charmap"
 )
 

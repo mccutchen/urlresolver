@@ -23,9 +23,9 @@ import (
 
 	"github.com/mccutchen/urlresolver/httphandler"
 	"github.com/mccutchen/urlresolver/resolver"
+	"github.com/mccutchen/urlresolver/resolver/twitter"
 	"github.com/mccutchen/urlresolver/safetransport"
 	"github.com/mccutchen/urlresolver/telemetry"
-	"github.com/mccutchen/urlresolver/twitter"
 )
 
 const (

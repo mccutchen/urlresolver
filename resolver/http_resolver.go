@@ -21,7 +21,7 @@ import (
 	"golang.org/x/net/publicsuffix"
 	"golang.org/x/sync/singleflight"
 
-	"github.com/mccutchen/urlresolver/twitter"
+	"github.com/mccutchen/urlresolver/resolver/twitter"
 )
 
 const (
