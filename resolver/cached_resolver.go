@@ -1,4 +1,4 @@
-package urlresolver
+package resolver
 
 import (
 	"context"
@@ -21,10 +21,10 @@ func NewCachedResolver(resolver Resolver, cache Cache) *CachedResolver {
 
 func (c *CachedResolver) Resolve(ctx context.Context, url string) (Result, error) {
 	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.String("urlresolver.cache_name", c.cache.Name()))
+	span.SetAttributes(attribute.String("resolver.cache_name", c.cache.Name()))
 
 	if result, ok := c.cache.Get(ctx, url); ok {
-		span.SetAttributes(attribute.String("urlresolver.cache_result", "hit"))
+		span.SetAttributes(attribute.String("resolver.cache_result", "hit"))
 		return result, nil
 	}
 
@@ -33,6 +33,6 @@ func (c *CachedResolver) Resolve(ctx context.Context, url string) (Result, error
 		c.cache.Add(ctx, url, result)
 	}
 
-	span.SetAttributes(attribute.String("urlresolver.cache_result", "miss"))
+	span.SetAttributes(attribute.String("resolver.cache_result", "miss"))
 	return result, err
 }

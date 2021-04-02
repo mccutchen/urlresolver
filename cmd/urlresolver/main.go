@@ -22,10 +22,10 @@ import (
 	"google.golang.org/grpc/credentials"
 
 	"github.com/mccutchen/urlresolver/httphandler"
+	"github.com/mccutchen/urlresolver/resolver"
 	"github.com/mccutchen/urlresolver/safetransport"
 	"github.com/mccutchen/urlresolver/telemetry"
 	"github.com/mccutchen/urlresolver/twitter"
-	"github.com/mccutchen/urlresolver/urlresolver"
 )
 
 const (
@@ -38,7 +38,7 @@ func main() {
 	stopTelemetry := initTelemetry(logger)
 	defer stopTelemetry(context.Background())
 
-	cache, err := urlresolver.NewLRUCache(defaultCacheSize)
+	cache, err := resolver.NewLRUCache(defaultCacheSize)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("error initializing cache")
 	}
@@ -46,9 +46,9 @@ func main() {
 	transport := telemetry.WrapTransport(safetransport.New())
 
 	// Create a cached resolver that will coalesce requests
-	resolver := urlresolver.NewCachedResolver(
-		urlresolver.NewSingleflightResolver(
-			urlresolver.New(
+	resolver := resolver.NewCachedResolver(
+		resolver.NewSingleflightResolver(
+			resolver.New(
 				transport,
 				twitter.New(transport),
 			),

@@ -1,4 +1,4 @@
-package urlresolver
+package resolver
 
 import (
 	"context"

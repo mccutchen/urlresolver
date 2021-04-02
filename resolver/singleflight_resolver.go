@@ -1,4 +1,4 @@
-package urlresolver
+package resolver
 
 import (
 	"context"
@@ -27,7 +27,7 @@ func (r *SingleflightResolver) Resolve(ctx context.Context, url string) (Result,
 		return r.resolver.Resolve(ctx, url)
 	})
 
-	span.SetAttributes(attribute.Bool("urlresolver.request_coalesced", coalesced))
+	span.SetAttributes(attribute.Bool("resolver.request_coalesced", coalesced))
 	if err != nil {
 		span.SetAttributes(attribute.String("error", err.Error()))
 	}

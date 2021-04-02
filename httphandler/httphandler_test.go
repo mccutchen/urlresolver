@@ -12,11 +12,11 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mccutchen/urlresolver/urlresolver"
+	"github.com/mccutchen/urlresolver/resolver"
 )
 
 func TestRouting(t *testing.T) {
-	handler := New(urlresolver.New(http.DefaultTransport, nil))
+	handler := New(resolver.New(http.DefaultTransport, nil))
 	remoteSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK\n"))
 	}))
@@ -112,7 +112,7 @@ func TestLookup(t *testing.T) {
 		remotePath    string
 		timeout       time.Duration
 		wantCode      int
-		wantResult    urlresolver.Result
+		wantResult    resolver.Result
 	}{
 		"ok": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +120,7 @@ func TestLookup(t *testing.T) {
 			},
 			remotePath: "/",
 			wantCode:   http.StatusOK,
-			wantResult: urlresolver.Result{
+			wantResult: resolver.Result{
 				Title:       "title",
 				ResolvedURL: "/",
 			},
@@ -167,7 +167,7 @@ func TestLookup(t *testing.T) {
 			remotePath: "/redirect",
 			timeout:    25 * time.Millisecond,
 			wantCode:   http.StatusOK,
-			wantResult: urlresolver.Result{
+			wantResult: resolver.Result{
 				Title:       "",
 				ResolvedURL: "/resolved",
 			},
@@ -176,7 +176,7 @@ func TestLookup(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			handler := New(urlresolver.New(http.DefaultTransport, nil))
+			handler := New(resolver.New(http.DefaultTransport, nil))
 
 			remoteSrv := httptest.NewServer(http.HandlerFunc(tc.remoteHandler))
 			defer remoteSrv.Close()
@@ -201,7 +201,7 @@ func TestLookup(t *testing.T) {
 				return
 			}
 
-			var result urlresolver.Result
+			var result resolver.Result
 			if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 				t.Errorf("failed to unmarshal body: %s: %s", err, w.Body.String())
 			}

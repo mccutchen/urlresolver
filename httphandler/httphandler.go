@@ -6,14 +6,14 @@ import (
 	"net/http"
 	"net/url"
 
-	"github.com/mccutchen/urlresolver/urlresolver"
+	"github.com/mccutchen/urlresolver/resolver"
 	"github.com/rs/zerolog/hlog"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/trace"
 )
 
 // New creates a new Handler.
-func New(resolver urlresolver.Resolver) *Handler {
+func New(resolver resolver.Resolver) *Handler {
 	return &Handler{
 		resolver: resolver,
 	}
@@ -21,7 +21,7 @@ func New(resolver urlresolver.Resolver) *Handler {
 
 // Handler is an HTTP request handler that can resolve URLs.
 type Handler struct {
-	resolver urlresolver.Resolver
+	resolver resolver.Resolver
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
