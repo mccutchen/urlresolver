@@ -27,7 +27,7 @@ func TestSingleflightResolver(t *testing.T) {
 		ResolvedURL: srv.URL,
 	}
 
-	resolver := NewSingleflightResolver(New(http.DefaultTransport, nil))
+	resolver := NewSingleFlightResolver(New(http.DefaultTransport, 0))
 
 	var wg sync.WaitGroup
 	for i := 0; i < 4; i++ {

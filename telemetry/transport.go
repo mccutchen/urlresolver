@@ -12,6 +12,8 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// WrapTransport returns a new transport that adds OpenTelemetry
+// instrumentation to all requests.
 func WrapTransport(transport http.RoundTripper) http.RoundTripper {
 	return &traceTransport{transport}
 }

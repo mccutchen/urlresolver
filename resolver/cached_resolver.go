@@ -7,11 +7,13 @@ import (
 	"go.opentelemetry.io/otel/trace"
 )
 
+// CachedResolver is a Resolver implementation that caches its results.
 type CachedResolver struct {
 	cache    Cache
 	resolver Resolver
 }
 
+// NewCachedResolver creates a new CachedResolver.
 func NewCachedResolver(resolver Resolver, cache Cache) *CachedResolver {
 	return &CachedResolver{
 		cache:    cache,
@@ -19,6 +21,7 @@ func NewCachedResolver(resolver Resolver, cache Cache) *CachedResolver {
 	}
 }
 
+// Resolve resolves a URL if it is not already cached.
 func (c *CachedResolver) Resolve(ctx context.Context, url string) (Result, error) {
 	span := trace.SpanFromContext(ctx)
 	span.SetAttributes(attribute.String("resolver.cache_name", c.cache.Name()))

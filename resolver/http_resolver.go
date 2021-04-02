@@ -19,33 +19,42 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
-	"golang.org/x/sync/singleflight"
 
 	"github.com/mccutchen/urlresolver/resolver/twitter"
 )
 
 const (
-	maxRedirects   = 10
+	defaultTimeout = 5 * time.Second
+	maxRedirects   = 5
 	maxBodySize    = 500 * 1024 // we'll read 500kb of body to find title
-	requestTimeout = 5 * time.Second
 )
 
 // Not very sportsmanlike, but basically effective at letting us fetch page
 // titles.
-var defaultHeaders = map[string]string{
+var fakeBrowserHeaders = map[string]string{
 	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
 	"Accept-Encoding": "gzip, deflate, br",
 	"Accept-Language": "en-US,en;q=0.5",
 	"Referer":         "https://duckduckgo.com/",
-	"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:84.0) Gecko/20100101 Firefox/84.0",
+	"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:87.0) Gecko/20100101 Firefox/87.0",
 }
 
 // New creates a new HTTPResolver that will use the given transport.
-func New(transport http.RoundTripper, tweetFetcher twitter.TweetFetcher) *HTTPResolver {
+func New(transport http.RoundTripper, timeout time.Duration) *HTTPResolver {
+	// Requests through this transport will masquerade as a real web browser
+	transport = &headerInjectingTransport{
+		injectHeaders: fakeBrowserHeaders,
+		transport:     transport,
+	}
+
+	if timeout == 0 {
+		timeout = defaultTimeout
+	}
+
 	return &HTTPResolver{
+		timeout:      timeout,
 		transport:    transport,
-		resolveGroup: &singleflight.Group{},
-		tweetFetcher: tweetFetcher,
+		tweetFetcher: twitter.New(transport, timeout),
 	}
 }
 
@@ -53,15 +62,15 @@ func New(transport http.RoundTripper, tweetFetcher twitter.TweetFetcher) *HTTPRe
 // and canonicalizing the resulting final URL, and attempting to extract the
 // title from URLs that resolve to HTML content.
 type HTTPResolver struct {
+	timeout      time.Duration
 	transport    http.RoundTripper
-	resolveGroup *singleflight.Group
 	tweetFetcher twitter.TweetFetcher
 }
 
 // Resolve resolves any redirects for a URL and attempts to extract the title
 // from the final response body
 func (r *HTTPResolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
-	req, err := prepareRequest(ctx, givenURL)
+	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
 		return Result{}, err
 	}
@@ -134,21 +143,8 @@ func (r *HTTPResolver) httpClient() *http.Client {
 		CheckRedirect: r.checkRedirect,
 		Jar:           cookieJar,
 		Transport:     r.transport,
-		Timeout:       requestTimeout,
+		Timeout:       r.timeout,
 	}
-}
-
-func prepareRequest(ctx context.Context, url string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	for k, v := range defaultHeaders {
-		req.Header.Set(k, v)
-	}
-
-	return req, nil
 }
 
 func maybeParseTitle(resp *http.Response) (string, error) {

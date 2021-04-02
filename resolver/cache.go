@@ -11,18 +11,21 @@ import (
 
 const redisCacheVersion = "1"
 
-// Cache is a generic cache interface
+// Cache is a generic cache interface.
 type Cache interface {
 	Add(ctx context.Context, key string, value Result)
 	Get(ctx context.Context, key string) (value Result, ok bool)
 	Name() string
 }
 
+// RedisCache caches results in redis.
 type RedisCache struct {
 	cache *cache.Cache
 	ttl   time.Duration
 }
 
+// NewRedisCache creates a new RedisCache whose entries will expire after the
+// given TTL.
 func NewRedisCache(cache *cache.Cache, ttl time.Duration) *RedisCache {
 	return &RedisCache{
 		cache: cache,
@@ -30,6 +33,7 @@ func NewRedisCache(cache *cache.Cache, ttl time.Duration) *RedisCache {
 	}
 }
 
+// Add adds a Result to the cache.
 func (c *RedisCache) Add(ctx context.Context, key string, value Result) {
 	c.cache.Set(&cache.Item{
 		Ctx:   ctx,
@@ -39,6 +43,8 @@ func (c *RedisCache) Add(ctx context.Context, key string, value Result) {
 	})
 }
 
+// Get gets a Result from the cache, returning a bool indicating whether it was
+// present.
 func (c *RedisCache) Get(ctx context.Context, key string) (Result, bool) {
 	var result Result
 	if err := c.cache.Get(ctx, redisCacheKey(key), &result); err != nil {
@@ -47,6 +53,7 @@ func (c *RedisCache) Get(ctx context.Context, key string) (Result, bool) {
 	return result, true
 }
 
+// Name returns the name of the cache, for instrumentation purposes.
 func (c *RedisCache) Name() string {
 	return "redis"
 }
