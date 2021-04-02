@@ -33,12 +33,12 @@ type OembedFetcher struct {
 }
 
 // New creates a new OembedFetcher
-func New(transport http.RoundTripper) *OembedFetcher {
+func New(transport http.RoundTripper, timeout time.Duration) *OembedFetcher {
 	return &OembedFetcher{
 		baseURL: "https://publish.twitter.com/oembed",
 		httpClient: &http.Client{
 			Transport: transport,
-			Timeout:   5 * time.Second,
+			Timeout:   timeout,
 		},
 	}
 }

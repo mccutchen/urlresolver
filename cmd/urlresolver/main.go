@@ -26,14 +26,14 @@ import (
 
 	"github.com/mccutchen/urlresolver/httphandler"
 	"github.com/mccutchen/urlresolver/resolver"
-	"github.com/mccutchen/urlresolver/resolver/twitter"
 	"github.com/mccutchen/urlresolver/safetransport"
 	"github.com/mccutchen/urlresolver/telemetry"
 )
 
 const (
-	defaultCacheTTL = 120 * time.Hour
-	defaultPort     = "8080"
+	cacheTTL       = 120 * time.Hour
+	defaultPort    = "8080"
+	requestTimeout = 6 * time.Second
 )
 
 func main() {
@@ -84,14 +84,11 @@ func initResolver(logger zerolog.Logger) resolver.Resolver {
 	redisCache := initRedisCache(logger)
 
 	var r resolver.Resolver
-	r = resolver.NewSingleflightResolver(
-		resolver.New(
-			transport,
-			twitter.New(transport),
-		),
+	r = resolver.NewSingleFlightResolver(
+		resolver.New(transport, requestTimeout),
 	)
 	if redisCache != nil {
-		r = resolver.NewCachedResolver(r, resolver.NewRedisCache(redisCache, defaultCacheTTL))
+		r = resolver.NewCachedResolver(r, resolver.NewRedisCache(redisCache, cacheTTL))
 	}
 	return r
 }

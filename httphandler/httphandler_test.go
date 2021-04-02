@@ -16,7 +16,7 @@ import (
 )
 
 func TestRouting(t *testing.T) {
-	handler := New(resolver.New(http.DefaultTransport, nil))
+	handler := New(resolver.New(http.DefaultTransport, 0))
 	remoteSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK\n"))
 	}))
@@ -176,7 +176,7 @@ func TestLookup(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			handler := New(resolver.New(http.DefaultTransport, nil))
+			handler := New(resolver.New(http.DefaultTransport, 0))
 
 			remoteSrv := httptest.NewServer(http.HandlerFunc(tc.remoteHandler))
 			defer remoteSrv.Close()

@@ -8,19 +8,25 @@ import (
 	"golang.org/x/sync/singleflight"
 )
 
-type SingleflightResolver struct {
+// SingleFlightResolver is a Resolver implementation that ensures concurrent
+// requests to resolve the same URL result in a single request to the origin
+// server.
+type SingleFlightResolver struct {
 	group    *singleflight.Group
 	resolver Resolver
 }
 
-func NewSingleflightResolver(resolver Resolver) *SingleflightResolver {
-	return &SingleflightResolver{
+// NewSingleFlightResolver creates a new SingleFlightResolver.
+func NewSingleFlightResolver(resolver Resolver) *SingleFlightResolver {
+	return &SingleFlightResolver{
 		group:    &singleflight.Group{},
 		resolver: resolver,
 	}
 }
 
-func (r *SingleflightResolver) Resolve(ctx context.Context, url string) (Result, error) {
+// Resolve resolves a URL, ensuring that concurrent requests result in a single
+// request to the origin server.
+func (r *SingleFlightResolver) Resolve(ctx context.Context, url string) (Result, error) {
 	span := trace.SpanFromContext(ctx)
 
 	v, err, coalesced := r.group.Do(url, func() (interface{}, error) {

@@ -31,7 +31,7 @@ func TestCachedResolver(t *testing.T) {
 	redisCache := cache.New(&cache.Options{Redis: redisClient})
 
 	resolver := NewCachedResolver(
-		New(http.DefaultTransport, nil),
+		New(http.DefaultTransport, 0),
 		NewRedisCache(redisCache, 10*time.Minute),
 	)
 

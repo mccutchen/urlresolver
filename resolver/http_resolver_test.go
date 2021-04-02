@@ -378,7 +378,7 @@ func TestResolver(t *testing.T) {
 			srv := httptest.NewServer(tc.handlerFunc)
 			defer srv.Close()
 
-			resolver := New(http.DefaultTransport, nil)
+			resolver := New(http.DefaultTransport, 0)
 
 			timeout := tc.timeout
 			if timeout == 0 {
@@ -477,7 +477,8 @@ func TestResolveTweets(t *testing.T) {
 			}))
 			defer srv.Close()
 
-			resolver := New(twitterInterceptTransport, tc.tweetFetcher)
+			resolver := New(twitterInterceptTransport, 0)
+			resolver.tweetFetcher = tc.tweetFetcher
 
 			result, err := resolver.Resolve(context.Background(), srv.URL)
 			if err != nil && tc.wantErr == nil {
@@ -531,29 +532,6 @@ func mustWriteAll(t *testing.T, dst io.Writer, s string) {
 	if err != nil {
 		t.Fatalf("write error: %s", err)
 	}
-}
-
-func TestPrepareRequest(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("default headers", func(t *testing.T) {
-		req, err := prepareRequest(ctx, "http://example.org")
-		if err != nil {
-			t.Errorf("unexpected error: %s", err)
-		}
-		for key, expectedValue := range defaultHeaders {
-			if value := req.Header.Get(key); value != expectedValue {
-				t.Errorf("expected default header %s=%#v, got %#v", key, expectedValue, value)
-			}
-		}
-	})
-
-	t.Run("invalid url", func(t *testing.T) {
-		_, err := prepareRequest(ctx, "http://example.org/foo%E")
-		if err == nil {
-			t.Error("did not get expected error")
-		}
-	})
 }
 
 func loadTitleTestCases(t *testing.T, maxBodySize int) map[string]titleTestCase {
