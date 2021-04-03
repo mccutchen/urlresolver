@@ -7,7 +7,7 @@ DIST_PATH	?= dist
 BUILD_ARGS	?= -ldflags="-s -w"
 
 # Default flags used by the test, testci, testcover targets
-COVERAGE_PATH ?= coverage.txt
+COVERAGE_PATH ?= coverage.out
 COVERAGE_ARGS ?= -covermode=atomic -coverprofile=$(COVERAGE_PATH)
 TEST_ARGS     ?= -race
 
