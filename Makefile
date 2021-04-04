@@ -17,14 +17,10 @@ TOOL_GOLINT      := $(TOOL_BIN_DIR)/golint
 TOOL_REFLEX      := $(TOOL_BIN_DIR)/reflex
 TOOL_STATICCHECK := $(TOOL_BIN_DIR)/staticcheck
 
-GO_SOURCES = $(wildcard **/*.go) $(wildcard cmd/**/*.go)
-
 # =============================================================================
 # build
 # =============================================================================
-build: $(DIST_PATH)/urlresolver
-
-$(DIST_PATH)/urlresolver: $(GO_SOURCES)
+build:
 	mkdir -p $(DIST_PATH)
 	CGO_ENABLED=0 go build -o $(DIST_PATH)/urlresolver ./cmd/urlresolver
 
