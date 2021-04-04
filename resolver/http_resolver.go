@@ -2,8 +2,6 @@ package resolver
 
 import (
 	"bytes"
-	"compress/flate"
-	"compress/gzip"
 	"context"
 	"fmt"
 	"io"
@@ -15,7 +13,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/andybalholm/brotli"
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
@@ -29,22 +26,11 @@ const (
 	maxBodySize    = 500 * 1024 // we'll read 500kb of body to find title
 )
 
-// Not very sportsmanlike, but basically effective at letting us fetch page
-// titles.
-var fakeBrowserHeaders = map[string]string{
-	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
-	"Accept-Encoding": "gzip, deflate, br",
-	"Accept-Language": "en-US,en;q=0.5",
-	"Referer":         "https://duckduckgo.com/",
-	"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:87.0) Gecko/20100101 Firefox/87.0",
-}
-
 // New creates a new HTTPResolver that will use the given transport.
 func New(transport http.RoundTripper, timeout time.Duration) *HTTPResolver {
 	// Requests through this transport will masquerade as a real web browser
-	transport = &headerInjectingTransport{
-		injectHeaders: fakeBrowserHeaders,
-		transport:     transport,
+	transport = &fakeBrowserTransport{
+		transport: transport,
 	}
 
 	if timeout == 0 {
@@ -166,24 +152,7 @@ func shouldParseTitle(resp *http.Response) bool {
 }
 
 func peekBody(resp *http.Response) ([]byte, error) {
-	var rd io.Reader = resp.Body
-	switch resp.Header.Get("Content-Encoding") {
-	case "gzip":
-		gr, err := gzip.NewReader(rd)
-		if err != nil {
-			return nil, fmt.Errorf("error initializing gzip: %w", err)
-		}
-		defer gr.Close()
-		rd = gr
-	case "deflate":
-		fr := flate.NewReader(rd)
-		defer fr.Close()
-		rd = fr
-	case "br":
-		rd = brotli.NewReader(rd)
-	}
-
-	rawBody, err := ioutil.ReadAll(io.LimitReader(rd, maxBodySize))
+	rawBody, err := ioutil.ReadAll(io.LimitReader(resp.Body, maxBodySize))
 	if err != nil {
 		return nil, fmt.Errorf("error reading response: %w", err)
 	}
