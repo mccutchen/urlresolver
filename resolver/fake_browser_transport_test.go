@@ -8,47 +8,47 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestHeaderInjectingTransport(t *testing.T) {
+func addHeaders(t *testing.T, a, b map[string]string) map[string]string {
+	result := make(map[string]string)
+	for k, v := range a {
+		result[k] = v
+	}
+	for k, v := range b {
+		if _, found := result[k]; found {
+			t.Errorf("invalid test case, key %q already exists in map", k)
+		}
+		result[k] = v
+	}
+	return result
+}
+
+func TestFakeBrowserTransport(t *testing.T) {
 	testCases := map[string]struct {
 		injectHeaders  map[string]string
 		requestHeaders map[string]string
 		wantHeaders    map[string]string
 	}{
 		"headers are injected": {
-			injectHeaders: map[string]string{
-				"Accept-Encoding": "injected",
-				"User-Agent":      "injected",
-				"X-1":             "injected",
-			},
 			requestHeaders: map[string]string{
+				"X-1": "in request",
 				"X-2": "in request",
-				"X-3": "in request",
 			},
-			wantHeaders: map[string]string{
-				"Accept-Encoding": "injected",
-				"User-Agent":      "injected",
-				"X-1":             "injected",
-				"X-2":             "in request",
-				"X-3":             "in request",
-			},
+			wantHeaders: addHeaders(t, fakeBrowserHeaders, map[string]string{
+				"X-1": "in request",
+				"X-2": "in request",
+			}),
 		},
 		"injected headers take precedence": {
-			injectHeaders: map[string]string{
-				"Accept-Encoding": "injected",
-				"User-Agent":      "injected",
-				"X-1":             "injected",
-			},
 			requestHeaders: map[string]string{
-				"User-Agent": "in request",
-				"X-1":        "in request",
-				"X-2":        "in request",
-			},
-			wantHeaders: map[string]string{
-				"Accept-Encoding": "injected",
-				"User-Agent":      "injected",
-				"X-1":             "injected",
+				"Accept-Encoding": "base64",
+				"User-Agent":      "in request",
+				"X-1":             "in request",
 				"X-2":             "in request",
 			},
+			wantHeaders: addHeaders(t, fakeBrowserHeaders, map[string]string{
+				"X-1": "in request",
+				"X-2": "in request",
+			}),
 		},
 	}
 	for name, tc := range testCases {
@@ -69,9 +69,8 @@ func TestHeaderInjectingTransport(t *testing.T) {
 			}
 
 			client := &http.Client{
-				Transport: &headerInjectingTransport{
-					injectHeaders: tc.injectHeaders,
-					transport:     http.DefaultTransport,
+				Transport: &fakeBrowserTransport{
+					transport: http.DefaultTransport,
 				},
 			}
 			resp, err := client.Do(req)
