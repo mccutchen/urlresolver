@@ -3,8 +3,7 @@ package resolver
 import (
 	"context"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/honeycombio/beeline-go"
 	"golang.org/x/sync/singleflight"
 )
 
@@ -27,15 +26,13 @@ func NewSingleFlightResolver(resolver Resolver) *SingleFlightResolver {
 // Resolve resolves a URL, ensuring that concurrent requests result in a single
 // request to the origin server.
 func (r *SingleFlightResolver) Resolve(ctx context.Context, url string) (Result, error) {
-	span := trace.SpanFromContext(ctx)
-
 	v, err, coalesced := r.group.Do(url, func() (interface{}, error) {
 		return r.resolver.Resolve(ctx, url)
 	})
 
-	span.SetAttributes(attribute.Bool("resolver.request_coalesced", coalesced))
+	beeline.AddField(ctx, "resolver.request_coalesced", coalesced)
 	if err != nil {
-		span.SetAttributes(attribute.String("error", err.Error()))
+		beeline.AddField(ctx, "error", err.Error())
 	}
 
 	return v.(Result), err

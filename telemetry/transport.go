@@ -7,15 +7,17 @@ import (
 	"net/http"
 	"net/http/httptrace"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/semconv"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/honeycombio/beeline-go"
+	"github.com/honeycombio/beeline-go/trace"
+	"github.com/honeycombio/beeline-go/wrappers/hnynethttp"
 )
 
-// WrapTransport returns a new transport that adds OpenTelemetry
-// instrumentation to all requests.
+// WrapTransport returns a new transport that adds detailed instrumentation to
+// all outgoing requests.
 func WrapTransport(transport http.RoundTripper) http.RoundTripper {
-	return &traceTransport{transport}
+	// Honeycomb's transport will add basic HTTP request instrumentation, our
+	// transport will add detailed network connection info.
+	return hnynethttp.WrapRoundTripper(&traceTransport{transport})
 }
 
 type traceTransport struct {
@@ -24,22 +26,16 @@ type traceTransport struct {
 
 func (t *traceTransport) RoundTrip(r *http.Request) (*http.Response, error) {
 	ctx := r.Context()
-	ctx, span := trace.SpanFromContext(ctx).Tracer().Start(ctx, "http.request", trace.WithSpanKind(trace.SpanKindClient))
-	defer span.End()
+	span := trace.GetSpanFromContext(ctx)
 
-	span.SetAttributes(semconv.HTTPClientAttributesFromHTTPRequest(r)...)
-	span.SetAttributes(semconv.NetAttributesFromHTTPRequest("tcp", r)...)
+	if span == nil {
+		return t.transport.RoundTrip(r)
+	}
 
 	ctx = httptrace.WithClientTrace(ctx, newClientTrace(ctx))
 	r = r.WithContext(ctx)
 
 	resp, err := t.transport.RoundTrip(r)
-
-	if err != nil {
-		span.SetAttributes(attribute.String("error", err.Error()))
-	} else {
-		span.SetAttributes(semconv.HTTPAttributesFromHTTPStatusCode(resp.StatusCode)...)
-	}
 
 	return resp, err
 }
@@ -65,22 +61,20 @@ func newClientTrace(ctx context.Context) *httptrace.ClientTrace {
 // request.
 type tracer struct {
 	ctx          context.Context
-	connectSpan  trace.Span
-	dnsSpan      trace.Span
-	tlsSpan      trace.Span
-	upstreamSpan trace.Span
+	connectSpan  *trace.Span
+	dnsSpan      *trace.Span
+	tlsSpan      *trace.Span
+	upstreamSpan *trace.Span
 }
 
 // GetConn is called before a connection is created or retrieved from an idle
 // pool. The hostPort is the "host:port" of the target or proxy. GetConn is
 // called even if there's already an idle cached connection available.
 func (t *tracer) GetConn(hostPort string) {
-	_, t.connectSpan = trace.SpanFromContext(t.ctx).Tracer().Start(t.ctx, "net.connect")
-	if host, port, err := net.SplitHostPort(hostPort); err != nil {
-		t.connectSpan.SetAttributes(
-			attribute.String(string(semconv.NetHostNameKey), host),
-			attribute.String(string(semconv.NetHostPortKey), port),
-		)
+	_, t.connectSpan = beeline.StartSpan(t.ctx, "net.connect")
+	if host, port, err := net.SplitHostPort(hostPort); err == nil {
+		t.connectSpan.AddField("net.host.name", host)
+		t.connectSpan.AddField("net.host.port", port)
 	}
 }
 
@@ -88,46 +82,44 @@ func (t *tracer) GetConn(hostPort string) {
 // hook for failure to obtain a connection; instead, use the error from
 // Transport.RoundTrip.
 func (t *tracer) GotConn(info httptrace.GotConnInfo) {
-	t.connectSpan.SetAttributes(
-		attribute.Bool("net.conn.reused", info.Reused),
-		attribute.Bool("net.conn.was_idle", info.WasIdle),
-	)
-	t.connectSpan.End()
+	t.connectSpan.AddField("net.conn.reused", info.Reused)
+	t.connectSpan.AddField("net.conn.was_idle", info.WasIdle)
+	t.connectSpan.Send()
 }
 
 // DNSStart is called when a DNS lookup begins.
 func (t *tracer) DNSStart(info httptrace.DNSStartInfo) {
-	_, t.dnsSpan = trace.SpanFromContext(t.ctx).Tracer().Start(t.ctx, "net.dns_lookup")
-	t.dnsSpan.SetAttributes(attribute.String(string(semconv.NetHostNameKey), info.Host))
+	_, t.dnsSpan = beeline.StartSpan(t.ctx, "net.dns_lookup")
+	t.dnsSpan.AddField("net.host.name", info.Host)
 }
 
 // DNSDone is called when a DNS lookup ends.
 func (t *tracer) DNSDone(info httptrace.DNSDoneInfo) {
-	t.dnsSpan.End()
+	t.dnsSpan.Send()
 }
 
 // TLSHandshakeStart is called when the TLS handshake is started. When
 // connecting to a HTTPS site via a HTTP proxy, the handshake happens after the
 // CONNECT request is processed by the proxy.
 func (t *tracer) TLSHandshakeStart() {
-	_, t.tlsSpan = trace.SpanFromContext(t.ctx).Tracer().Start(t.ctx, "net.tls_handshake")
+	_, t.tlsSpan = beeline.StartSpan(t.ctx, "net.tls_handshake")
 }
 
 // TLSHandshakeDone is called after the TLS handshake with either the
 // successful handshake's connection state, or a non-nil error on handshake
 // failure.
 func (t *tracer) TLSHandshakeDone(state tls.ConnectionState, err error) {
-	t.tlsSpan.SetAttributes(attribute.Bool("net.conn.tls_did_resume", state.DidResume))
-	t.tlsSpan.End()
+	t.tlsSpan.AddField("net.conn.tls_did_resume", state.DidResume)
+	t.tlsSpan.Send()
 }
 
 // WroteRequest is called with the result of writing the request and any body.
 // It may be called multiple times in the case of retried requests.
 func (t *tracer) WroteRequest(info httptrace.WroteRequestInfo) {
 	if t.upstreamSpan == nil {
-		_, t.upstreamSpan = trace.SpanFromContext(t.ctx).Tracer().Start(t.ctx, "net.conn.time_to_first_byte")
+		_, t.upstreamSpan = beeline.StartSpan(t.ctx, "net.conn.time_to_first_byte")
 		if info.Err != nil {
-			t.upstreamSpan.SetAttributes(attribute.String("error", info.Err.Error()))
+			t.upstreamSpan.AddField("error", info.Err.Error())
 		}
 	}
 }
@@ -135,5 +127,5 @@ func (t *tracer) WroteRequest(info httptrace.WroteRequestInfo) {
 // GotFirstResponseByte is called when the first byte of the response headers
 // is available.
 func (t *tracer) GotFirstResponseByte() {
-	t.upstreamSpan.End()
+	t.upstreamSpan.Send()
 }
