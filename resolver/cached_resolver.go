@@ -3,8 +3,7 @@ package resolver
 import (
 	"context"
 
-	"go.opentelemetry.io/otel/attribute"
-	"go.opentelemetry.io/otel/trace"
+	"github.com/honeycombio/beeline-go"
 )
 
 // CachedResolver is a Resolver implementation that caches its results.
@@ -23,11 +22,10 @@ func NewCachedResolver(resolver Resolver, cache Cache) *CachedResolver {
 
 // Resolve resolves a URL if it is not already cached.
 func (c *CachedResolver) Resolve(ctx context.Context, url string) (Result, error) {
-	span := trace.SpanFromContext(ctx)
-	span.SetAttributes(attribute.String("resolver.cache_name", c.cache.Name()))
+	beeline.AddField(ctx, "resolver.cache_name", c.cache.Name())
 
 	if result, ok := c.cache.Get(ctx, url); ok {
-		span.SetAttributes(attribute.String("resolver.cache_result", "hit"))
+		beeline.AddField(ctx, "resolver.cache_result", "hit")
 		return result, nil
 	}
 
@@ -36,6 +34,6 @@ func (c *CachedResolver) Resolve(ctx context.Context, url string) (Result, error
 		c.cache.Add(ctx, url, result)
 	}
 
-	span.SetAttributes(attribute.String("resolver.cache_result", "miss"))
+	beeline.AddField(ctx, "resolver.cache_result", "miss")
 	return result, err
 }

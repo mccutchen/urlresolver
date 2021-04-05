@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-redis/cache/v8"
+	"github.com/honeycombio/beeline-go"
 )
 
 const redisCacheVersion = "1"
@@ -35,19 +36,35 @@ func NewRedisCache(cache *cache.Cache, ttl time.Duration) *RedisCache {
 
 // Add adds a Result to the cache.
 func (c *RedisCache) Add(ctx context.Context, key string, value Result) {
-	c.cache.Set(&cache.Item{
+	ctx, span := beeline.StartSpan(ctx, "cache.add")
+	span.AddField("cache.name", c.Name())
+	span.AddField("cache.key", key)
+	defer span.Send()
+
+	err := c.cache.Set(&cache.Item{
 		Ctx:   ctx,
 		Key:   redisCacheKey(key),
 		Value: value,
 		TTL:   c.ttl,
 	})
+	if err != nil {
+		span.AddField("error", err.Error())
+	}
 }
 
 // Get gets a Result from the cache, returning a bool indicating whether it was
 // present.
 func (c *RedisCache) Get(ctx context.Context, key string) (Result, bool) {
+	ctx, span := beeline.StartSpan(ctx, "cache.get")
+	span.AddField("cache.name", c.Name())
+	span.AddField("cache.key", key)
+	defer span.Send()
+
 	var result Result
 	if err := c.cache.Get(ctx, redisCacheKey(key), &result); err != nil {
+		if err != cache.ErrCacheMiss {
+			span.AddField("error", err.Error())
+		}
 		return Result{}, false
 	}
 	return result, true
