@@ -16,6 +16,7 @@ import (
 	"golang.org/x/net/html"
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
+	"golang.org/x/sync/singleflight"
 
 	"github.com/mccutchen/urlresolver/resolver/twitter"
 )
@@ -38,9 +39,10 @@ func New(transport http.RoundTripper, timeout time.Duration) *HTTPResolver {
 	}
 
 	return &HTTPResolver{
-		timeout:      timeout,
-		transport:    transport,
-		tweetFetcher: twitter.New(transport, timeout),
+		singleflightGroup: &singleflight.Group{},
+		timeout:           timeout,
+		transport:         transport,
+		tweetFetcher:      twitter.New(transport, timeout),
 	}
 }
 
@@ -48,14 +50,23 @@ func New(transport http.RoundTripper, timeout time.Duration) *HTTPResolver {
 // and canonicalizing the resulting final URL, and attempting to extract the
 // title from URLs that resolve to HTML content.
 type HTTPResolver struct {
-	timeout      time.Duration
-	transport    http.RoundTripper
-	tweetFetcher twitter.TweetFetcher
+	singleflightGroup *singleflight.Group
+	timeout           time.Duration
+	transport         http.RoundTripper
+	tweetFetcher      twitter.TweetFetcher
 }
 
-// Resolve resolves any redirects for a URL and attempts to extract the title
-// from the final response body
+// Resolve resolves the given URL by following any redirects, canonicalizing
+// the final URL, and attempting to extract the title from the final response
+// body.
 func (r *HTTPResolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
+	val, err, _ := r.singleflightGroup.Do(givenURL, func() (interface{}, error) {
+		return r.doResolve(ctx, givenURL)
+	})
+	return val.(Result), err
+}
+
+func (r *HTTPResolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
 		return Result{}, err

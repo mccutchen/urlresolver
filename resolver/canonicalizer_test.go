@@ -67,7 +67,7 @@ func TestCanonicalize(t *testing.T) {
 		// Domains for from which all query params are removed
 		{
 			name:     "all params are removed from domain with www",
-			given:    "http://www.buzzfeed.com/foo?a=1&b=2&c=3",
+			given:    "http://www.BuzzFeed.COM/foo?a=1&b=2&c=3",
 			expected: "http://www.buzzfeed.com/foo",
 		},
 		{
@@ -92,22 +92,22 @@ func TestCanonicalize(t *testing.T) {
 			given:    "https://www.youtube.com/watch?v=abcd1234&fbcid=789",
 			expected: "https://www.youtube.com/watch?v=abcd1234",
 		},
+		{
+			name:     "tracking params are stripped from domains with param whitelists",
+			given:    "https://www.youtube.com/watch?v=abcd1234&fbcid=789",
+			expected: "https://www.youtube.com/watch?v=abcd1234",
+		},
 
 		// Domains for which URLs are lowercased
 		{
 			name:     "twitter lowercase",
-			given:    "https://twitter.com/McCutchen/status/12345",
+			given:    "https://Twitter.COM/McCutchen/status/12345",
 			expected: "https://twitter.com/mccutchen/status/12345",
 		},
 		{
 			name:     "instagram lowercase",
 			given:    "https://instagram.com/McCutchen",
 			expected: "https://instagram.com/mccutchen",
-		},
-		{
-			name:     "tracking params are stripped from domains with whitelists",
-			given:    "https://www.youtube.com/watch?v=abcd1234&fbcid=789",
-			expected: "https://www.youtube.com/watch?v=abcd1234",
 		},
 	}
 

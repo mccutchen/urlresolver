@@ -15,6 +15,8 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -421,6 +423,38 @@ func TestResolver(t *testing.T) {
 			assert.Equal(t, tc.wantResult, result)
 		})
 	}
+
+	t.Run("multiple requests for the same URL are coalesced into one", func(t *testing.T) {
+		var counter int64
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			atomic.AddInt64(&counter, 1)
+			<-time.After(250 * time.Millisecond)
+			w.Header().Set("Content-Type", "text/html")
+			w.Write([]byte(`<html><head><title>title</title></head></html>`))
+		}))
+		defer srv.Close()
+
+		wantResult := Result{
+			Title:       "title",
+			ResolvedURL: srv.URL,
+		}
+
+		resolver := New(http.DefaultTransport, 0)
+
+		var wg sync.WaitGroup
+		for i := 0; i < 4; i++ {
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				result, err := resolver.Resolve(context.Background(), srv.URL)
+				assert.NoError(t, err)
+				assert.Equal(t, wantResult, result)
+			}()
+		}
+		wg.Wait()
+
+		assert.Equal(t, int64(1), counter, "expected all requests coalesced into 1")
+	})
 
 	// an invalid URL is the only way to get an error out of Resolve
 	t.Run("invalid URL error", func(t *testing.T) {

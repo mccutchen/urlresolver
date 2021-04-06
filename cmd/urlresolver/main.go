@@ -110,10 +110,7 @@ func initResolver(logger zerolog.Logger) resolver.Resolver {
 	transport := telemetry.WrapTransport(safetransport.New())
 	redisCache := initRedisCache(logger)
 
-	var r resolver.Resolver
-	r = resolver.NewSingleFlightResolver(
-		resolver.New(transport, requestTimeout),
-	)
+	var r resolver.Resolver = resolver.New(transport, requestTimeout)
 	if redisCache != nil {
 		r = resolver.NewCachedResolver(r, resolver.NewRedisCache(redisCache, cacheTTL))
 	}
