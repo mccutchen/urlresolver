@@ -33,17 +33,6 @@ func TestRouting(t *testing.T) {
 		wantBody string
 	}
 	testCases := map[string]testCase{
-		"get index ok": {
-			method:   "GET",
-			path:     "/",
-			wantCode: http.StatusOK,
-			wantBody: "Hello, world",
-		},
-		"path not found": {
-			method:   "GET",
-			path:     "/foo",
-			wantCode: http.StatusNotFound,
-		},
 		"lookup valid url ok": {
 			method:   "GET",
 			path:     "/lookup?url=" + remoteSrv.URL,

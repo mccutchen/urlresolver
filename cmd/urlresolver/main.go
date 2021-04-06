@@ -44,7 +44,8 @@ func main() {
 	defer stopTelemetry()
 
 	resolver := initResolver(logger)
-	handler := applyMiddleware(httphandler.New(resolver), logger)
+	mux := http.NewServeMux()
+	mux.Handle("/lookup", httphandler.New(resolver))
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -53,7 +54,7 @@ func main() {
 
 	srv := &http.Server{
 		Addr:    net.JoinHostPort("", port),
-		Handler: handler,
+		Handler: applyMiddleware(mux, logger),
 	}
 
 	listenAndServeGracefully(srv, shutdownTimeout, logger)

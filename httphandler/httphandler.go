@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -44,21 +43,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	switch r.URL.Path {
-	case "/":
-		h.handleIndex(w, r)
-	case "/lookup":
-		h.handleLookup(w, r)
-	default:
-		sendError(w, "Not found", http.StatusNotFound)
-	}
-}
-
-func (h *Handler) handleIndex(w http.ResponseWriter, r *http.Request) {
-	fmt.Fprintln(w, "Hello, world")
-}
-
-func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	givenURL := r.URL.Query().Get("url")
