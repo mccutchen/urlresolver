@@ -1,9 +1,12 @@
 package main
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/go-redis/cache/v8"
@@ -12,6 +15,7 @@ import (
 	"github.com/honeycombio/beeline-go/wrappers/hnynethttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
+	"github.com/rs/zerolog/log"
 
 	"github.com/mccutchen/urlresolver/httphandler"
 	"github.com/mccutchen/urlresolver/resolver"
@@ -39,8 +43,41 @@ func main() {
 	}
 
 	addr := net.JoinHostPort("", port)
+	srv := &http.Server{
+		Addr:    addr,
+		Handler: handler,
+	}
+
+	// exitCh will be closed when it is safe to exit, after the server has had
+	// a chance to shut down gracefully
+	exitCh := make(chan struct{})
+
+	go func() {
+		// wait for SIGTERM or SIGINT
+		sigCh := make(chan os.Signal, 1)
+		signal.Notify(sigCh, syscall.SIGTERM, syscall.SIGINT)
+		sig := <-sigCh
+
+		// start graceful shutdown
+		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout+1*time.Second)
+		defer cancel()
+
+		log.Info().Msgf("shutdown started by signal: %s", sig)
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Error().Err(err).Msg("shutdown error")
+		}
+
+		// indicate that it is now safe to exit
+		close(exitCh)
+	}()
+
 	logger.Info().Msgf("listening on %s", addr)
-	logger.Fatal().Err(http.ListenAndServe(addr, handler)).Msg("finished")
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		log.Error().Err(err).Msg("listen error")
+	}
+
+	<-exitCh
+	log.Info().Msg("shutdown finished")
 }
 
 func applyMiddleware(h http.Handler, l zerolog.Logger) http.Handler {
