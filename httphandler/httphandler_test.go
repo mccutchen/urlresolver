@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
-	"reflect"
 	"strings"
 	"testing"
 	"time"
 
 	"github.com/mccutchen/urlresolver/resolver"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestRouting(t *testing.T) {
@@ -112,7 +113,7 @@ func TestLookup(t *testing.T) {
 		remotePath    string
 		timeout       time.Duration
 		wantCode      int
-		wantResult    resolver.Result
+		wantResult    resolveResponse
 	}{
 		"ok": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -120,7 +121,7 @@ func TestLookup(t *testing.T) {
 			},
 			remotePath: "/",
 			wantCode:   http.StatusOK,
-			wantResult: resolver.Result{
+			wantResult: resolveResponse{
 				Title:       "title",
 				ResolvedURL: "/",
 			},
@@ -136,9 +137,14 @@ func TestLookup(t *testing.T) {
 				case <-r.Context().Done():
 				}
 			},
-			remotePath: "/",
+			remotePath: "/foo",
 			timeout:    5 * time.Millisecond,
-			wantCode:   http.StatusBadGateway,
+			wantResult: resolveResponse{
+				Title:       "",
+				ResolvedURL: "/foo",
+				Error:       ErrRequestTimeout.Error(),
+			},
+			wantCode: http.StatusNonAuthoritativeInfo,
 		},
 		"url gets resolved but title cannot be found": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -166,10 +172,11 @@ func TestLookup(t *testing.T) {
 			},
 			remotePath: "/redirect",
 			timeout:    25 * time.Millisecond,
-			wantCode:   http.StatusOK,
-			wantResult: resolver.Result{
+			wantCode:   http.StatusNonAuthoritativeInfo,
+			wantResult: resolveResponse{
 				Title:       "",
 				ResolvedURL: "/resolved",
+				Error:       ErrRequestTimeout.Error(),
 			},
 		},
 	}
@@ -193,27 +200,49 @@ func TestLookup(t *testing.T) {
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, r)
 
-			if w.Code != tc.wantCode {
-				t.Fatalf("expected code %d, got %d: %s", tc.wantCode, w.Code, w.Body.String())
-			}
-
-			if tc.wantCode != http.StatusOK {
+			if !assert.Equal(t, tc.wantCode, w.Code) {
 				return
 			}
 
-			var result resolver.Result
+			var result resolveResponse
 			if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
 				t.Errorf("failed to unmarshal body: %s: %s", err, w.Body.String())
 			}
 
 			// fix up expected URL
 			tc.wantResult.ResolvedURL = renderURL(remoteSrv.URL, tc.wantResult.ResolvedURL)
-
-			if !reflect.DeepEqual(result, tc.wantResult) {
-				t.Errorf("expected result %#v, got %#v", tc.wantResult, result)
-			}
+			assert.Equal(t, tc.wantResult, result)
 		})
 	}
+
+	t.Run("non-timeout request error", func(t *testing.T) {
+		handler := New(resolver.New(&http.Transport{
+			DialContext: (&net.Dialer{
+				Timeout: 1 * time.Millisecond,
+			}).DialContext,
+		}, 0))
+
+		// Make an HTTPS request to a server that does not exist, to trigger a
+		// non-timeout error
+		r, err := http.NewRequest("GET", "/lookup?url=https://127.0.0.99/?utm_foo=bar", nil)
+		assert.NoError(t, err)
+
+		w := httptest.NewRecorder()
+		handler.ServeHTTP(w, r)
+
+		assert.Equal(t, http.StatusNonAuthoritativeInfo, w.Code)
+
+		var result resolveResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
+			t.Errorf("failed to unmarshal body: %s: %s", err, w.Body.String())
+		}
+
+		wantResult := resolveResponse{
+			ResolvedURL: "https://127.0.0.99/",
+			Error:       ErrResolveError.Error(),
+		}
+		assert.Equal(t, wantResult, result)
+	})
 }
 
 func newLookupRequest(ctx context.Context, t *testing.T, remoteSrv *httptest.Server, remotePath string) *http.Request {

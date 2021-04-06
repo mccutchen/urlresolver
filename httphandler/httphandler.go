@@ -1,7 +1,9 @@
 package httphandler
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -10,6 +12,18 @@ import (
 	"github.com/mccutchen/urlresolver/resolver"
 	"github.com/rs/zerolog/hlog"
 )
+
+// Errors that might be returned by the HTTP handler
+var (
+	ErrRequestTimeout = errors.New("request timeout")
+	ErrResolveError   = errors.New("resolve error")
+)
+
+type resolveResponse struct {
+	ResolvedURL string `json:"resolved_url"`
+	Title       string `json:"title"`
+	Error       string `json:"error,omitempty"`
+}
 
 // New creates a new Handler.
 func New(resolver resolver.Resolver) *Handler {
@@ -65,17 +79,27 @@ func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
 	// So, we always log the error, but we only return an error response if we
 	// did not manage to resolve the URL.
 	result, err := h.resolver.Resolve(ctx, givenURL)
+
+	resp := resolveResponse{
+		ResolvedURL: result.ResolvedURL,
+		Title:       result.Title,
+	}
+	code := http.StatusOK
+
 	if err != nil {
+		// Record the real error
 		beeline.AddField(ctx, "error", err.Error())
 		hlog.FromRequest(r).Error().Err(err).Str("url", givenURL).Msg("error resolving url")
-		if result.ResolvedURL == "" {
-			sendError(w, "Error resolving URL", http.StatusBadGateway)
-			return
-		}
-		beeline.AddField(ctx, "resolver.partial_result", true)
+
+		// A slight abuse of 203 Non-Authoritative Information to indicate a
+		// partial result. See https://httpstatuses.com/203.
+		code = http.StatusNonAuthoritativeInfo
+
+		// Rewrite the error to hide implementation details
+		resp.Error = mapError(err).Error()
 	}
 
-	json.NewEncoder(w).Encode(result)
+	sendJSON(w, code, resp)
 }
 
 func isValidInput(givenURL string) bool {
@@ -94,10 +118,23 @@ func isValidInput(givenURL string) bool {
 	return true
 }
 
-func sendError(w http.ResponseWriter, msg string, code int) {
+func sendJSON(w http.ResponseWriter, code int, data interface{}) {
 	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]string{
+	_ = json.NewEncoder(w).Encode(data)
+}
+
+func sendError(w http.ResponseWriter, msg string, code int) {
+	sendJSON(w, code, map[string]string{
 		"error": msg,
 	})
+}
+
+func mapError(err error) error {
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		return ErrRequestTimeout
+	default:
+		return ErrResolveError
+	}
 }
