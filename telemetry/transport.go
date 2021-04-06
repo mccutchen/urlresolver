@@ -24,18 +24,12 @@ type traceTransport struct {
 	transport http.RoundTripper
 }
 
-func (t *traceTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	ctx := r.Context()
-	span := trace.GetSpanFromContext(ctx)
-
-	if span == nil {
-		return t.transport.RoundTrip(r)
-	}
-
+func (t *traceTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	ctx := req.Context()
 	ctx = httptrace.WithClientTrace(ctx, newClientTrace(ctx))
-	r = r.WithContext(ctx)
+	req = req.WithContext(ctx)
 
-	resp, err := t.transport.RoundTrip(r)
+	resp, err := t.transport.RoundTrip(req)
 
 	return resp, err
 }
