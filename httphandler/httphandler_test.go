@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -13,6 +14,8 @@ import (
 	"time"
 
 	"github.com/mccutchen/urlresolver/resolver"
+	"github.com/mccutchen/urlresolver/safedialer"
+	"github.com/mccutchen/urlresolver/telemetry"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -109,13 +112,16 @@ func TestRouting(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	testCases := map[string]struct {
-		remoteHandler  func(http.ResponseWriter, *http.Request)
-		remotePath     string
-		handlerTimeout time.Duration
-		reqTimeout     time.Duration
-		wantCode       int
-		wantResult     resolveResponse
-		wantErr        error
+		remoteHandler func(http.ResponseWriter, *http.Request)
+		remotePath    string
+		transport     http.RoundTripper
+
+		upstreamReqTimeout   time.Duration
+		testClientReqTimeout time.Duration
+
+		wantCode   int
+		wantResult resolveResponse
+		wantErr    error
 	}{
 		"ok": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -139,8 +145,8 @@ func TestLookup(t *testing.T) {
 				case <-r.Context().Done():
 				}
 			},
-			remotePath:     "/foo",
-			handlerTimeout: 5 * time.Millisecond,
+			remotePath:         "/foo",
+			upstreamReqTimeout: 5 * time.Millisecond,
 			wantResult: resolveResponse{
 				Title:       "",
 				ResolvedURL: "/foo",
@@ -172,9 +178,9 @@ func TestLookup(t *testing.T) {
 				case <-r.Context().Done():
 				}
 			},
-			remotePath:     "/redirect",
-			handlerTimeout: 50 * time.Millisecond,
-			wantCode:       http.StatusNonAuthoritativeInfo,
+			remotePath:         "/redirect",
+			upstreamReqTimeout: 50 * time.Millisecond,
+			wantCode:           http.StatusNonAuthoritativeInfo,
 			wantResult: resolveResponse{
 				Title:       "",
 				ResolvedURL: "/resolved",
@@ -193,12 +199,25 @@ func TestLookup(t *testing.T) {
 				Error:       ErrResolveError.Error(),
 			},
 		},
+		"request to unsafe upstream fails": {
+			remoteHandler: func(w http.ResponseWriter, r *http.Request) {},
+			remotePath:    "/foo?utm_param=bar",
+			transport: &http.Transport{
+				DialContext: safedialer.New(net.Dialer{}).DialContext,
+			},
+			wantCode: http.StatusNonAuthoritativeInfo,
+			wantResult: resolveResponse{
+				Title:       "",
+				ResolvedURL: "/foo",
+				Error:       ErrResolveError.Error(),
+			},
+		},
 
-		// Note: This test exists to exercise the code path that handles clients
-		// closing the request (look for "499" in httphandler.go), but there's not
-		// a good way to directly test the actual result of that code (since our
-		// test client will never see the response, because it has already closed
-		// the request).
+		// Note: This test exists to exercise the code path that handles
+		// clients closing the request (look for "499" in httphandler.go), but
+		// there's not a good way to directly test the actual result of that
+		// code (since our test client will never see the response, because it
+		// has already closed the request).
 		"client closes connection before url is resolved": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
 				select {
@@ -210,8 +229,8 @@ func TestLookup(t *testing.T) {
 				case <-r.Context().Done():
 				}
 			},
-			remotePath: "/foo",
-			reqTimeout: 5 * time.Millisecond,
+			remotePath:           "/foo",
+			testClientReqTimeout: 5 * time.Millisecond,
 
 			// Here we get context.DeadlineExceeded, because that's what happened
 			// from this test case's POV.  The srv running here will actually see
@@ -224,14 +243,20 @@ func TestLookup(t *testing.T) {
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			handler := New(resolver.New(http.DefaultTransport, tc.handlerTimeout))
+			transport := tc.transport
+			if transport == nil {
+				transport = http.DefaultTransport
+			}
+			transport = telemetry.WrapTransport(transport)
+
+			handler := New(resolver.New(transport, tc.upstreamReqTimeout))
 			resolverSrv := httptest.NewServer(handler)
 			defer resolverSrv.Close()
 
 			remoteSrv := httptest.NewServer(http.HandlerFunc(tc.remoteHandler))
 			defer remoteSrv.Close()
 
-			timeout := tc.reqTimeout
+			timeout := tc.testClientReqTimeout
 			if timeout == 0 {
 				timeout = 100 * time.Millisecond
 			}

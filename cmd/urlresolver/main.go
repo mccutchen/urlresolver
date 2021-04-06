@@ -18,7 +18,7 @@ import (
 
 	"github.com/mccutchen/urlresolver/httphandler"
 	"github.com/mccutchen/urlresolver/resolver"
-	"github.com/mccutchen/urlresolver/safetransport"
+	"github.com/mccutchen/urlresolver/safedialer"
 	"github.com/mccutchen/urlresolver/telemetry"
 )
 
@@ -27,6 +27,15 @@ const (
 	defaultPort     = "8080"
 	requestTimeout  = 6 * time.Second
 	shutdownTimeout = requestTimeout + 1*time.Second
+
+	// dialer
+	dialTimeout = 1 * time.Second
+
+	// transport
+	transportIdleConnTimeout     = 90 * time.Second
+	transportMaxIdleConns        = 100
+	transportMaxIdleConnsPerHost = 100
+	transportTLSHandshakeTimeout = 1 * time.Second
 )
 
 func main() {
@@ -107,7 +116,14 @@ func accessLogger(r *http.Request, status int, size int, duration time.Duration)
 }
 
 func initResolver(logger zerolog.Logger) resolver.Resolver {
-	transport := telemetry.WrapTransport(safetransport.New())
+	dialer := safedialer.New(net.Dialer{Timeout: dialTimeout})
+	transport := telemetry.WrapTransport(&http.Transport{
+		DialContext:         dialer.DialContext,
+		IdleConnTimeout:     transportIdleConnTimeout,
+		MaxIdleConnsPerHost: transportMaxIdleConnsPerHost,
+		MaxIdleConns:        transportMaxIdleConnsPerHost * 2,
+		TLSHandshakeTimeout: transportTLSHandshakeTimeout,
+	})
 	redisCache := initRedisCache(logger)
 
 	var r resolver.Resolver = resolver.New(transport, requestTimeout)
