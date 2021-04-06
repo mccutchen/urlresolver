@@ -13,7 +13,6 @@ import (
 	"net/http/httptest"
 	"net/url"
 	"path/filepath"
-	"reflect"
 	"strconv"
 	"strings"
 	"testing"
@@ -21,6 +20,7 @@ import (
 
 	"github.com/andybalholm/brotli"
 	"github.com/mccutchen/urlresolver/resolver/twitter"
+	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/encoding/charmap"
 )
 
@@ -140,7 +140,6 @@ func TestResolver(t *testing.T) {
 			},
 		},
 		{
-			// https://github.com/mccutchen/thresholderbot/pull/63
 			name: "instagram auth detection",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
 				if r.URL.Path == "/instagram" {
@@ -166,7 +165,32 @@ func TestResolver(t *testing.T) {
 			},
 			givenURL: "/foo",
 			timeout:  10 * time.Millisecond,
-			wantErr:  context.DeadlineExceeded,
+			wantResult: Result{
+				ResolvedURL: "/foo",
+			},
+			wantErr: context.DeadlineExceeded,
+		},
+		{
+			name: "request error after redirect still resolves URL",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/long-url" {
+					http.Redirect(w, r, "/short-url?"+r.URL.RawQuery, http.StatusFound)
+					return
+				}
+				select {
+				case <-time.After(10 * time.Second):
+					w.Write([]byte(`<html><head><title>title</title></head></html>`))
+				case <-r.Context().Done():
+					return
+				}
+			},
+			givenURL: "/long-url?zzz=zzz&mmm=mmm&AAA=AAA&utm_campaign=spam",
+			timeout:  50 * time.Millisecond,
+			wantResult: Result{
+				ResolvedURL: "/short-url?AAA=AAA&mmm=mmm&zzz=zzz", // note, we still got a resolved (and canonicalized) URL despite the error
+				Title:       "",
+			},
+			wantErr: context.DeadlineExceeded,
 		},
 		{
 			name: "timeout reading body still resolves URL",
@@ -393,21 +417,31 @@ func TestResolver(t *testing.T) {
 			}
 
 			result, err := resolver.Resolve(ctx, givenURL)
-			if tc.wantErr != nil {
-				if err == nil {
-					t.Fatalf("expected error %q, got nil", tc.wantErr)
-				}
-				if !(err == tc.wantErr || errors.Is(err, tc.wantErr) || tc.wantErr.Error() == err.Error()) {
-					t.Fatalf("expected error %q, got %q", tc.wantErr, err)
-				}
-			} else if err != nil {
-				t.Fatalf("unexpected error: %s", err)
-			}
-
-			if !reflect.DeepEqual(tc.wantResult, result) {
-				t.Errorf("expected result %v, got %v", tc.wantResult, result)
-			}
+			assertErrorsMatch(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantResult, result)
 		})
+	}
+
+	// an invalid URL is the only way to get an error out of Resolve
+	t.Run("invalid URL error", func(t *testing.T) {
+		resolver := New(http.DefaultTransport, 0)
+		result, err := resolver.Resolve(context.Background(), "%%")
+		assertErrorsMatch(t, errors.New("invalid URL escape"), err)
+		assert.Equal(t, Result{}, result)
+	})
+}
+
+// assertErrorsMatch is a helper for comparing two error values, mostly to hide
+// the awkwardness of comparing error strings necessitated by the kinds of
+// network errors we're dealing with containing random IP addresses.
+func assertErrorsMatch(t *testing.T, want, got error) {
+	t.Helper()
+	if want != nil {
+		if assert.Error(t, got) {
+			assert.Contains(t, got.Error(), want.Error())
+		}
+	} else {
+		assert.NoError(t, got, "got unexpected error")
 	}
 }
 
@@ -481,19 +515,8 @@ func TestResolveTweets(t *testing.T) {
 			resolver.tweetFetcher = tc.tweetFetcher
 
 			result, err := resolver.Resolve(context.Background(), srv.URL)
-			if err != nil && tc.wantErr == nil {
-				t.Errorf("unexepcted error: %s", err)
-			} else if tc.wantErr != nil && err == nil {
-				t.Errorf("expected error %s, got nil", tc.wantErr)
-			} else if tc.wantErr != nil && err != nil {
-				if tc.wantErr.Error() != err.Error() {
-					t.Errorf("expected error %s, got %s", tc.wantErr, err)
-				}
-			}
-
-			if !reflect.DeepEqual(result, tc.wantResult) {
-				t.Fatalf("wanted result %#v, got %#v", tc.wantResult, result)
-			}
+			assertErrorsMatch(t, tc.wantErr, err)
+			assert.Equal(t, tc.wantResult, result)
 		})
 	}
 

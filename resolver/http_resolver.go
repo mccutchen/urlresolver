@@ -63,10 +63,24 @@ func (r *HTTPResolver) Resolve(ctx context.Context, givenURL string) (Result, er
 
 	resp, err := r.httpClient().Do(req)
 	if err != nil {
-		if urlErr, ok := err.(*url.Error); ok && urlErr.Err == context.DeadlineExceeded {
-			err = context.DeadlineExceeded
+		result := Result{
+			ResolvedURL: givenURL,
 		}
-		return Result{}, fmt.Errorf("error making http request: %w", err)
+
+		// If there's a URL associated with the error, we still want to
+		// canonicalize it and return a partial result. This gives us a useful
+		// result when we go through one or more redirects but the final URL
+		// fails to load (timeout, TLS error, etc).
+		//
+		// Note: AFAICT, the error from Do() will always be a *url.Error.
+		if urlErr, ok := err.(*url.Error); ok {
+			result.ResolvedURL = urlErr.URL
+			if intermediateURL, _ := url.Parse(urlErr.URL); intermediateURL != nil {
+				result.ResolvedURL = Canonicalize(intermediateURL)
+			}
+		}
+
+		return result, err
 	}
 	defer resp.Body.Close()
 
@@ -79,16 +93,11 @@ func (r *HTTPResolver) Resolve(ctx context.Context, givenURL string) (Result, er
 		return r.resolveTweet(ctx, tweetURL)
 	}
 
-	result := Result{
-		ResolvedURL: resolvedURL,
-	}
 	title, err := maybeParseTitle(resp)
-	if err != nil {
-		return result, err
-	}
-
-	result.Title = title
-	return result, err
+	return Result{
+		ResolvedURL: resolvedURL,
+		Title:       title,
+	}, err
 }
 
 func (r *HTTPResolver) resolveTweet(ctx context.Context, tweetURL string) (Result, error) {
