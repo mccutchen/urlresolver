@@ -15,7 +15,6 @@ import (
 	"github.com/honeycombio/beeline-go/wrappers/hnynethttp"
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
-	"github.com/rs/zerolog/log"
 
 	"github.com/mccutchen/urlresolver/httphandler"
 	"github.com/mccutchen/urlresolver/resolver"
@@ -24,9 +23,10 @@ import (
 )
 
 const (
-	cacheTTL       = 120 * time.Hour
-	defaultPort    = "8080"
-	requestTimeout = 6 * time.Second
+	cacheTTL        = 120 * time.Hour
+	defaultPort     = "8080"
+	requestTimeout  = 6 * time.Second
+	shutdownTimeout = requestTimeout + 1*time.Second
 )
 
 func main() {
@@ -42,12 +42,15 @@ func main() {
 		port = defaultPort
 	}
 
-	addr := net.JoinHostPort("", port)
 	srv := &http.Server{
-		Addr:    addr,
+		Addr:    net.JoinHostPort("", port),
 		Handler: handler,
 	}
 
+	listenAndServeGracefully(srv, shutdownTimeout, logger)
+}
+
+func listenAndServeGracefully(srv *http.Server, shutdownTimeout time.Duration, logger zerolog.Logger) {
 	// exitCh will be closed when it is safe to exit, after the server has had
 	// a chance to shut down gracefully
 	exitCh := make(chan struct{})
@@ -59,25 +62,25 @@ func main() {
 		sig := <-sigCh
 
 		// start graceful shutdown
-		ctx, cancel := context.WithTimeout(context.Background(), requestTimeout+1*time.Second)
+		logger.Info().Msgf("shutdown started by signal: %s", sig)
+		ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
 		defer cancel()
-
-		log.Info().Msgf("shutdown started by signal: %s", sig)
 		if err := srv.Shutdown(ctx); err != nil {
-			log.Error().Err(err).Msg("shutdown error")
+			logger.Error().Err(err).Msg("shutdown error")
 		}
 
 		// indicate that it is now safe to exit
 		close(exitCh)
 	}()
 
-	logger.Info().Msgf("listening on %s", addr)
+	// start server
+	logger.Info().Msgf("listening on %s", srv.Addr)
 	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
-		log.Error().Err(err).Msg("listen error")
+		logger.Error().Err(err).Msg("listen error")
 	}
 
+	// wait until it is safe to exit
 	<-exitCh
-	log.Info().Msg("shutdown finished")
 }
 
 func applyMiddleware(h http.Handler, l zerolog.Logger) http.Handler {
