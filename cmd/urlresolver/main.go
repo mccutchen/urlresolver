@@ -139,6 +139,11 @@ func initTelemetry(logger zerolog.Logger) func() {
 		dataset = "urlresolver"
 	)
 
+	if apiKey == "" {
+		logger.Info().Msg("HONEYCOMB_API_KEY not set, telemetry disabled")
+		return func() {}
+	}
+
 	beeline.Init(beeline.Config{
 		WriteKey: apiKey,
 		Dataset:  dataset,
