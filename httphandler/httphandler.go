@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 
 	"github.com/honeycombio/beeline-go"
 	"github.com/mccutchen/urlresolver/resolver"
@@ -87,6 +88,16 @@ func (h *Handler) handleLookup(w http.ResponseWriter, r *http.Request) {
 	code := http.StatusOK
 
 	if err != nil {
+		// Special case when client closed connection, no need to respond
+		if errors.Is(err, context.Canceled) {
+			beeline.AddField(ctx, "error", "client closed connection")
+			hlog.FromRequest(r).Error().Err(err).Str("url", givenURL).Msg("client closed connection")
+			// Use non-standard 499 Client Closed Request status for our own
+			// instrumentation purposes (https://httpstatuses.com/499)
+			w.WriteHeader(499)
+			return
+		}
+
 		// Record the real error
 		beeline.AddField(ctx, "error", err.Error())
 		hlog.FromRequest(r).Error().Err(err).Str("url", givenURL).Msg("error resolving url")
@@ -132,9 +143,16 @@ func sendError(w http.ResponseWriter, msg string, code int) {
 
 func mapError(err error) error {
 	switch {
-	case errors.Is(err, context.DeadlineExceeded):
+	case isTimeout(err):
 		return ErrRequestTimeout
 	default:
 		return ErrResolveError
 	}
+}
+
+func isTimeout(err error) bool {
+	if err == nil {
+		return false
+	}
+	return errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) || isTimeout(errors.Unwrap(err))
 }

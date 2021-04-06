@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net"
+	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -109,11 +109,13 @@ func TestRouting(t *testing.T) {
 
 func TestLookup(t *testing.T) {
 	testCases := map[string]struct {
-		remoteHandler func(http.ResponseWriter, *http.Request)
-		remotePath    string
-		timeout       time.Duration
-		wantCode      int
-		wantResult    resolveResponse
+		remoteHandler  func(http.ResponseWriter, *http.Request)
+		remotePath     string
+		handlerTimeout time.Duration
+		reqTimeout     time.Duration
+		wantCode       int
+		wantResult     resolveResponse
+		wantErr        error
 	}{
 		"ok": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -137,8 +139,8 @@ func TestLookup(t *testing.T) {
 				case <-r.Context().Done():
 				}
 			},
-			remotePath: "/foo",
-			timeout:    5 * time.Millisecond,
+			remotePath:     "/foo",
+			handlerTimeout: 5 * time.Millisecond,
 			wantResult: resolveResponse{
 				Title:       "",
 				ResolvedURL: "/foo",
@@ -170,25 +172,66 @@ func TestLookup(t *testing.T) {
 				case <-r.Context().Done():
 				}
 			},
-			remotePath: "/redirect",
-			timeout:    25 * time.Millisecond,
-			wantCode:   http.StatusNonAuthoritativeInfo,
+			remotePath:     "/redirect",
+			handlerTimeout: 50 * time.Millisecond,
+			wantCode:       http.StatusNonAuthoritativeInfo,
 			wantResult: resolveResponse{
 				Title:       "",
 				ResolvedURL: "/resolved",
 				Error:       ErrRequestTimeout.Error(),
 			},
 		},
+		"non-timeout error resolving url": {
+			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
+				panic("abort request")
+			},
+			remotePath: "/foo?utm_param=bar",
+			wantCode:   http.StatusNonAuthoritativeInfo,
+			wantResult: resolveResponse{
+				Title:       "",
+				ResolvedURL: "/foo",
+				Error:       ErrResolveError.Error(),
+			},
+		},
+
+		// Note: This test exists to exercise the code path that handles clients
+		// closing the request (look for "499" in httphandler.go), but there's not
+		// a good way to directly test the actual result of that code (since our
+		// test client will never see the response, because it has already closed
+		// the request).
+		"client closes connection before url is resolved": {
+			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
+				select {
+				// sleep longer than test timeout below, to ensure the resolve
+				// request times out
+				case <-time.After(100 * time.Millisecond):
+				// but don't waste time sleeping after the request has been
+				// canceled as expected
+				case <-r.Context().Done():
+				}
+			},
+			remotePath: "/foo",
+			reqTimeout: 5 * time.Millisecond,
+
+			// Here we get context.DeadlineExceeded, because that's what happened
+			// from this test case's POV.  The srv running here will actually see
+			// the client closing the request, but we don't have a good way to
+			// directly test its behavior in that case, because our test client
+			// here will never see the response.
+			wantErr: context.DeadlineExceeded,
+		},
 	}
 
 	for name, tc := range testCases {
 		t.Run(name, func(t *testing.T) {
-			handler := New(resolver.New(http.DefaultTransport, 0))
+			handler := New(resolver.New(http.DefaultTransport, tc.handlerTimeout))
+			resolverSrv := httptest.NewServer(handler)
+			defer resolverSrv.Close()
 
 			remoteSrv := httptest.NewServer(http.HandlerFunc(tc.remoteHandler))
 			defer remoteSrv.Close()
 
-			timeout := tc.timeout
+			timeout := tc.reqTimeout
 			if timeout == 0 {
 				timeout = 100 * time.Millisecond
 			}
@@ -196,17 +239,25 @@ func TestLookup(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), timeout)
 			defer cancel()
 
-			r := newLookupRequest(ctx, t, remoteSrv, tc.remotePath)
-			w := httptest.NewRecorder()
-			handler.ServeHTTP(w, r)
-
-			if !assert.Equal(t, tc.wantCode, w.Code) {
+			req := newLookupRequest(ctx, t, resolverSrv, remoteSrv, tc.remotePath)
+			resp, err := http.DefaultClient.Do(req)
+			if tc.wantErr != nil {
+				assert.ErrorIs(t, err, tc.wantErr)
+				return
+			}
+			if !assert.NoError(t, err) {
+				return
+			}
+			if !assert.Equal(t, tc.wantCode, resp.StatusCode) {
 				return
 			}
 
+			body, err := ioutil.ReadAll(resp.Body)
+			assert.NoError(t, err)
+
 			var result resolveResponse
-			if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
-				t.Errorf("failed to unmarshal body: %s: %s", err, w.Body.String())
+			if err := json.Unmarshal(body, &result); err != nil {
+				t.Errorf("failed to unmarshal body: %s: %s", err, string(body))
 			}
 
 			// fix up expected URL
@@ -214,43 +265,14 @@ func TestLookup(t *testing.T) {
 			assert.Equal(t, tc.wantResult, result)
 		})
 	}
-
-	t.Run("non-timeout request error", func(t *testing.T) {
-		handler := New(resolver.New(&http.Transport{
-			DialContext: (&net.Dialer{
-				Timeout: 1 * time.Millisecond,
-			}).DialContext,
-		}, 0))
-
-		// Make an HTTPS request to a server that does not exist, to trigger a
-		// non-timeout error
-		r, err := http.NewRequest("GET", "/lookup?url=https://127.0.0.99/?utm_foo=bar", nil)
-		assert.NoError(t, err)
-
-		w := httptest.NewRecorder()
-		handler.ServeHTTP(w, r)
-
-		assert.Equal(t, http.StatusNonAuthoritativeInfo, w.Code)
-
-		var result resolveResponse
-		if err := json.Unmarshal(w.Body.Bytes(), &result); err != nil {
-			t.Errorf("failed to unmarshal body: %s: %s", err, w.Body.String())
-		}
-
-		wantResult := resolveResponse{
-			ResolvedURL: "https://127.0.0.99/",
-			Error:       ErrResolveError.Error(),
-		}
-		assert.Equal(t, wantResult, result)
-	})
 }
 
-func newLookupRequest(ctx context.Context, t *testing.T, remoteSrv *httptest.Server, remotePath string) *http.Request {
+func newLookupRequest(ctx context.Context, t *testing.T, resolverSrv *httptest.Server, remoteSrv *httptest.Server, remotePath string) *http.Request {
 	t.Helper()
 
 	params := url.Values{}
 	params.Add("url", remoteSrv.URL+remotePath)
-	u := "/lookup?" + params.Encode()
+	u := resolverSrv.URL + "/lookup?" + params.Encode()
 
 	req, _ := http.NewRequestWithContext(ctx, "GET", u, nil)
 	return req
