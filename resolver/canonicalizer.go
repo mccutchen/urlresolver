@@ -15,7 +15,7 @@ var (
 	// Extension:
 	//
 	// https://github.com/newhouse/url-tracking-stripper/blob/dea6c144/README.md#documentation
-	excludeParamPattern = listToRegexp(`^(`, `)$`, []string{
+	excludeParamPattern = listToRegexp(`(?i)^(`, `)$`, []string{
 		// Google's Urchin Tracking Module & Google Adwords
 		`utm_.+`,
 		`gclid`,
@@ -63,7 +63,7 @@ var (
 
 	// Per-domain lists of allowed query parameters
 	domainParamAllowlist = map[*regexp.Regexp]*regexp.Regexp{
-		regexp.MustCompile(`(^|\.)youtube\.com$`): regexp.MustCompile(`^(v|p|t|list)$`),
+		regexp.MustCompile(`(?i)(^|\.)youtube\.com$`): regexp.MustCompile(`^(v|p|t|list)$`),
 	}
 
 	// All query params will be stripped from these domains, which tend to be
@@ -72,7 +72,7 @@ var (
 	// TODO: this could potentially make us miss roll some urls up together
 	// (e.g. in the case of /search?q=foo on a domain), but I think it"s worth
 	// it for now.
-	stripParamDomainPattern = listToRegexp(`(^|\.)(`, `)$`, []string{
+	stripParamDomainPattern = listToRegexp(`(?i)(^|\.)(`, `)$`, []string{
 		`bbc\.co\.uk`,
 		`buzzfeed\.com`,
 		`deadspin\.com`,
@@ -94,7 +94,7 @@ var (
 		`wsj\.com`,
 	})
 
-	lowercaseDomainPattern = listToRegexp(`(^|\.)(`, `)$`, []string{
+	lowercaseDomainPattern = listToRegexp(`(?i)(^|\.)(`, `)$`, []string{
 		`instagram\.com`,
 		`twitter\.com`,
 	})
@@ -121,7 +121,6 @@ func Canonicalize(u *url.URL) string {
 func Normalize(u *url.URL) string {
 	if lowercaseDomainPattern.MatchString(u.Host) {
 		u.Path = strings.ToLower(u.Path)
-		u.RawQuery = strings.ToLower(u.RawQuery)
 	}
 	return purell.NormalizeURL(u, purellNormalizationFlags)
 }
