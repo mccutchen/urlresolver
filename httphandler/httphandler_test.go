@@ -15,7 +15,7 @@ import (
 
 	"github.com/mccutchen/urlresolver/resolver"
 	"github.com/mccutchen/urlresolver/safedialer"
-	"github.com/mccutchen/urlresolver/telemetry"
+	"github.com/mccutchen/urlresolver/tracetransport"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -236,7 +236,7 @@ func TestLookup(t *testing.T) {
 			if transport == nil {
 				transport = http.DefaultTransport
 			}
-			transport = telemetry.WrapTransport(transport)
+			transport = tracetransport.New(transport)
 
 			handler := New(resolver.New(transport, tc.upstreamReqTimeout))
 			resolverSrv := httptest.NewServer(handler)

@@ -19,7 +19,7 @@ import (
 	"github.com/mccutchen/urlresolver/httphandler"
 	"github.com/mccutchen/urlresolver/resolver"
 	"github.com/mccutchen/urlresolver/safedialer"
-	"github.com/mccutchen/urlresolver/telemetry"
+	"github.com/mccutchen/urlresolver/tracetransport"
 )
 
 const (
@@ -118,7 +118,7 @@ func accessLogger(r *http.Request, status int, size int, duration time.Duration)
 
 func initResolver(logger zerolog.Logger) resolver.Resolver {
 	dialer := safedialer.New(net.Dialer{Timeout: dialTimeout})
-	transport := telemetry.WrapTransport(&http.Transport{
+	transport := tracetransport.New(&http.Transport{
 		DialContext:         dialer.DialContext,
 		IdleConnTimeout:     transportIdleConnTimeout,
 		MaxIdleConnsPerHost: transportMaxIdleConnsPerHost,

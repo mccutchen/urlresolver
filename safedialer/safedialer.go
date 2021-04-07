@@ -4,7 +4,6 @@
 // This code was lightly adapted from Andrew Ayer's excellent "Preventing
 // Server Side Request Forgery in Golang" blog post:
 // https://www.agwa.name/blog/post/preventing_server_side_request_forgery_in_golangs
-
 package safedialer
 
 /*

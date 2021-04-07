@@ -1,4 +1,4 @@
-package telemetry
+package tracetransport
 
 import (
 	"context"
@@ -12,10 +12,10 @@ import (
 	"github.com/honeycombio/beeline-go/wrappers/hnynethttp"
 )
 
-// WrapTransport returns a new transport that adds detailed instrumentation to
-// all outgoing requests.
-func WrapTransport(transport http.RoundTripper) http.RoundTripper {
-	// Honeycomb's transport will add basic HTTP request instrumentation, our
+// New returns a new transport that adds detailed instrumentation to all
+// outgoing requests.
+func New(transport http.RoundTripper) http.RoundTripper {
+	// Honeycomb's transport will add baseline HTTP request instrumentation, our
 	// transport will add detailed network connection info.
 	return hnynethttp.WrapRoundTripper(&traceTransport{transport})
 }
