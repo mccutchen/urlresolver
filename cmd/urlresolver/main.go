@@ -152,18 +152,22 @@ func initRedisCache(logger zerolog.Logger) *cache.Cache {
 
 func initTelemetry(logger zerolog.Logger) func() {
 	var (
-		apiKey  = os.Getenv("HONEYCOMB_API_KEY")
-		dataset = "urlresolver"
+		apiKey      = os.Getenv("HONEYCOMB_API_KEY")
+		serviceName = os.Getenv("FLY_APP_NAME")
 	)
 
 	if apiKey == "" {
 		logger.Info().Msg("HONEYCOMB_API_KEY not set, telemetry disabled")
 		return func() {}
 	}
+	if serviceName == "" {
+		serviceName = "urlresolver"
+	}
 
 	beeline.Init(beeline.Config{
-		WriteKey: apiKey,
-		Dataset:  dataset,
+		Dataset:     serviceName,
+		ServiceName: serviceName,
+		WriteKey:    apiKey,
 	})
 	return beeline.Close
 }
