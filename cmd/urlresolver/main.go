@@ -168,7 +168,7 @@ func initTelemetry(logger zerolog.Logger) func() {
 		Dataset:     serviceName,
 		ServiceName: serviceName,
 		WriteKey:    apiKey,
-		SampleRate:  5, // sample 1/5 (or 20%) events
+		SampleRate:  10, // sample 1/10 or 10% events
 	})
 	return beeline.Close
 }
