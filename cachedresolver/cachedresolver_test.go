@@ -1,4 +1,4 @@
-package resolver
+package cachedresolver
 
 import (
 	"context"
@@ -12,6 +12,8 @@ import (
 	"github.com/go-redis/cache/v8"
 	"github.com/go-redis/redis/v8"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/mccutchen/urlresolver"
 )
 
 func TestCachedResolver(t *testing.T) {
@@ -31,11 +33,11 @@ func TestCachedResolver(t *testing.T) {
 	redisCache := cache.New(&cache.Options{Redis: redisClient})
 
 	resolver := NewCachedResolver(
-		New(http.DefaultTransport, 0),
+		urlresolver.New(http.DefaultTransport, 0),
 		NewRedisCache(redisCache, 10*time.Minute),
 	)
 
-	wantResult := Result{
+	wantResult := urlresolver.Result{
 		Title:       "title",
 		ResolvedURL: srv.URL,
 	}

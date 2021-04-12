@@ -16,8 +16,9 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/hlog"
 
+	"github.com/mccutchen/urlresolver"
+	"github.com/mccutchen/urlresolver/cachedresolver"
 	"github.com/mccutchen/urlresolver/httphandler"
-	"github.com/mccutchen/urlresolver/resolver"
 	"github.com/mccutchen/urlresolver/safedialer"
 	"github.com/mccutchen/urlresolver/tracetransport"
 )
@@ -116,10 +117,12 @@ func accessLogger(r *http.Request, status int, size int, duration time.Duration)
 		Send()
 }
 
-func initResolver(logger zerolog.Logger) resolver.Resolver {
-	dialer := safedialer.New(net.Dialer{Timeout: dialTimeout})
+func initResolver(logger zerolog.Logger) urlresolver.Interface {
 	transport := tracetransport.New(&http.Transport{
-		DialContext:         dialer.DialContext,
+		DialContext: (&net.Dialer{
+			Control: safedialer.Control,
+			Timeout: dialTimeout,
+		}).DialContext,
 		IdleConnTimeout:     transportIdleConnTimeout,
 		MaxIdleConnsPerHost: transportMaxIdleConnsPerHost,
 		MaxIdleConns:        transportMaxIdleConnsPerHost * 2,
@@ -127,9 +130,9 @@ func initResolver(logger zerolog.Logger) resolver.Resolver {
 	})
 	redisCache := initRedisCache(logger)
 
-	var r resolver.Resolver = resolver.New(transport, requestTimeout)
+	var r urlresolver.Interface = urlresolver.New(transport, requestTimeout)
 	if redisCache != nil {
-		r = resolver.NewCachedResolver(r, resolver.NewRedisCache(redisCache, cacheTTL))
+		r = cachedresolver.NewCachedResolver(r, cachedresolver.NewRedisCache(redisCache, cacheTTL))
 	}
 	return r
 }
@@ -137,7 +140,7 @@ func initResolver(logger zerolog.Logger) resolver.Resolver {
 func initRedisCache(logger zerolog.Logger) *cache.Cache {
 	redisURL := os.Getenv("FLY_REDIS_CACHE_URL")
 	if redisURL == "" {
-		logger.Info().Msg("FLY_REDIS_CACHE_URL not set, cache disabled")
+		logger.Info().Msg("set FLY_REDIS_CACHE_URL to enable caching")
 		return nil
 	}
 
@@ -157,7 +160,7 @@ func initTelemetry(logger zerolog.Logger) func() {
 	)
 
 	if apiKey == "" {
-		logger.Info().Msg("HONEYCOMB_API_KEY not set, telemetry disabled")
+		logger.Info().Msg("set HONEYCOMB_API_KEY to capture telemetry")
 		return func() {}
 	}
 	if serviceName == "" {

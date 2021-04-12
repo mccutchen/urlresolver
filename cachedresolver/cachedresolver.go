@@ -1,19 +1,20 @@
-package resolver
+package cachedresolver
 
 import (
 	"context"
 
 	"github.com/honeycombio/beeline-go"
+	"github.com/mccutchen/urlresolver"
 )
 
 // CachedResolver is a Resolver implementation that caches its results.
 type CachedResolver struct {
 	cache    Cache
-	resolver Resolver
+	resolver urlresolver.Interface
 }
 
 // NewCachedResolver creates a new CachedResolver.
-func NewCachedResolver(resolver Resolver, cache Cache) *CachedResolver {
+func NewCachedResolver(resolver urlresolver.Interface, cache Cache) *CachedResolver {
 	return &CachedResolver{
 		cache:    cache,
 		resolver: resolver,
@@ -21,7 +22,7 @@ func NewCachedResolver(resolver Resolver, cache Cache) *CachedResolver {
 }
 
 // Resolve resolves a URL if it is not already cached.
-func (c *CachedResolver) Resolve(ctx context.Context, url string) (Result, error) {
+func (c *CachedResolver) Resolve(ctx context.Context, url string) (urlresolver.Result, error) {
 	beeline.AddField(ctx, "resolver.cache_name", c.cache.Name())
 
 	if result, ok := c.cache.Get(ctx, url); ok {

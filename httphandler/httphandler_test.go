@@ -13,14 +13,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mccutchen/urlresolver/resolver"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/mccutchen/urlresolver"
 	"github.com/mccutchen/urlresolver/safedialer"
 	"github.com/mccutchen/urlresolver/tracetransport"
-	"github.com/stretchr/testify/assert"
 )
 
 func TestRouting(t *testing.T) {
-	handler := New(resolver.New(http.DefaultTransport, 0))
+	handler := New(urlresolver.New(http.DefaultTransport, 0))
 	remoteSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("OK\n"))
 	}))
@@ -109,7 +110,7 @@ func TestLookup(t *testing.T) {
 		testClientReqTimeout time.Duration
 
 		wantCode   int
-		wantResult resolveResponse
+		wantResult ResolveResponse
 		wantErr    error
 	}{
 		"ok": {
@@ -118,7 +119,7 @@ func TestLookup(t *testing.T) {
 			},
 			remotePath: "/",
 			wantCode:   http.StatusOK,
-			wantResult: resolveResponse{
+			wantResult: ResolveResponse{
 				Title:       "title",
 				ResolvedURL: "/",
 			},
@@ -136,7 +137,7 @@ func TestLookup(t *testing.T) {
 			},
 			remotePath:         "/foo",
 			upstreamReqTimeout: 5 * time.Millisecond,
-			wantResult: resolveResponse{
+			wantResult: ResolveResponse{
 				Title:       "",
 				ResolvedURL: "/foo",
 				Error:       ErrRequestTimeout.Error(),
@@ -170,7 +171,7 @@ func TestLookup(t *testing.T) {
 			remotePath:         "/redirect",
 			upstreamReqTimeout: 50 * time.Millisecond,
 			wantCode:           http.StatusNonAuthoritativeInfo,
-			wantResult: resolveResponse{
+			wantResult: ResolveResponse{
 				Title:       "",
 				ResolvedURL: "/resolved",
 				Error:       ErrRequestTimeout.Error(),
@@ -182,7 +183,7 @@ func TestLookup(t *testing.T) {
 			},
 			remotePath: "/foo?utm_param=bar",
 			wantCode:   http.StatusNonAuthoritativeInfo,
-			wantResult: resolveResponse{
+			wantResult: ResolveResponse{
 				Title:       "",
 				ResolvedURL: "/foo",
 				Error:       ErrResolveError.Error(),
@@ -192,10 +193,10 @@ func TestLookup(t *testing.T) {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {},
 			remotePath:    "/foo?utm_param=bar",
 			transport: &http.Transport{
-				DialContext: safedialer.New(net.Dialer{}).DialContext,
+				DialContext: (&net.Dialer{Control: safedialer.Control}).DialContext,
 			},
 			wantCode: http.StatusNonAuthoritativeInfo,
-			wantResult: resolveResponse{
+			wantResult: ResolveResponse{
 				Title:       "",
 				ResolvedURL: "/foo",
 				Error:       ErrResolveError.Error(),
@@ -238,7 +239,7 @@ func TestLookup(t *testing.T) {
 			}
 			transport = tracetransport.New(transport)
 
-			handler := New(resolver.New(transport, tc.upstreamReqTimeout))
+			handler := New(urlresolver.New(transport, tc.upstreamReqTimeout))
 			resolverSrv := httptest.NewServer(handler)
 			defer resolverSrv.Close()
 
@@ -269,7 +270,7 @@ func TestLookup(t *testing.T) {
 			body, err := ioutil.ReadAll(resp.Body)
 			assert.NoError(t, err)
 
-			var result resolveResponse
+			var result ResolveResponse
 			if err := json.Unmarshal(body, &result); err != nil {
 				t.Errorf("failed to unmarshal body: %s: %s", err, string(body))
 			}

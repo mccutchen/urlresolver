@@ -1,4 +1,4 @@
-package resolver
+package urlresolver
 
 import (
 	"bytes"
@@ -17,8 +17,6 @@ import (
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
 	"golang.org/x/sync/singleflight"
-
-	"github.com/mccutchen/urlresolver/resolver/twitter"
 )
 
 const (
@@ -27,8 +25,31 @@ const (
 	maxBodySize    = 500 * 1024 // we'll read 500kb of body to find title
 )
 
+// Interface defines the interface for a URL resolver.
+type Interface interface {
+	Resolve(context.Context, string) (Result, error)
+}
+
+// Result is the result of resolving a URL.
+type Result struct {
+	ResolvedURL string
+	Title       string
+}
+
+// Resolver resolves a URL by following any redirects; cleaning, normalizing,
+// and canonicalizing the resulting final URL, and attempting to extract the
+// title from URLs that resolve to HTML content.
+type Resolver struct {
+	singleflightGroup *singleflight.Group
+	timeout           time.Duration
+	transport         http.RoundTripper
+	tweetFetcher      tweetFetcher
+}
+
+var _ Interface = &Resolver{} // Resolver implements Interface
+
 // New creates a new HTTPResolver that will use the given transport.
-func New(transport http.RoundTripper, timeout time.Duration) *HTTPResolver {
+func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
 	// Requests through this transport will masquerade as a real web browser
 	transport = &fakeBrowserTransport{
 		transport: transport,
@@ -38,35 +59,31 @@ func New(transport http.RoundTripper, timeout time.Duration) *HTTPResolver {
 		timeout = defaultTimeout
 	}
 
-	return &HTTPResolver{
+	return &Resolver{
 		singleflightGroup: &singleflight.Group{},
 		timeout:           timeout,
 		transport:         transport,
-		tweetFetcher:      twitter.New(transport, timeout),
+		tweetFetcher:      newTweetFetcher(transport, timeout),
 	}
-}
-
-// HTTPResolver resolves a URL by following any redirects; cleaning, normalizing,
-// and canonicalizing the resulting final URL, and attempting to extract the
-// title from URLs that resolve to HTML content.
-type HTTPResolver struct {
-	singleflightGroup *singleflight.Group
-	timeout           time.Duration
-	transport         http.RoundTripper
-	tweetFetcher      twitter.TweetFetcher
 }
 
 // Resolve resolves the given URL by following any redirects, canonicalizing
 // the final URL, and attempting to extract the title from the final response
 // body.
-func (r *HTTPResolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
+func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
+	// Immediately canonicalize the given URL to slighly increase the chance of
+	// coalescing multiple requests into one.
+	if u, err := url.Parse(givenURL); err == nil {
+		givenURL = Canonicalize(u)
+	}
+
 	val, err, _ := r.singleflightGroup.Do(givenURL, func() (interface{}, error) {
 		return r.doResolve(ctx, givenURL)
 	})
 	return val.(Result), err
 }
 
-func (r *HTTPResolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
+func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
 		return Result{}, err
@@ -100,7 +117,7 @@ func (r *HTTPResolver) doResolve(ctx context.Context, givenURL string) (Result, 
 	resolvedURL := Canonicalize(resp.Request.URL)
 
 	// Special case for tweet URLs, which we ask Twitter to help us resolve
-	if tweetURL, ok := twitter.MatchTweetURL(resolvedURL); ok {
+	if tweetURL, ok := MatchTweetURL(resolvedURL); ok {
 		return r.resolveTweet(ctx, tweetURL)
 	}
 
@@ -111,7 +128,7 @@ func (r *HTTPResolver) doResolve(ctx context.Context, givenURL string) (Result, 
 	}, err
 }
 
-func (r *HTTPResolver) resolveTweet(ctx context.Context, tweetURL string) (Result, error) {
+func (r *Resolver) resolveTweet(ctx context.Context, tweetURL string) (Result, error) {
 	tweet, err := r.tweetFetcher.Fetch(ctx, tweetURL)
 	if err != nil {
 		// We have a resolved tweet URL, so we return a partial result along
@@ -125,7 +142,7 @@ func (r *HTTPResolver) resolveTweet(ctx context.Context, tweetURL string) (Resul
 	}, nil
 }
 
-func (r *HTTPResolver) checkRedirect(req *http.Request, via []*http.Request) error {
+func (r *Resolver) checkRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= maxRedirects {
 		return http.ErrUseLastResponse
 	}
@@ -141,7 +158,7 @@ func (r *HTTPResolver) checkRedirect(req *http.Request, via []*http.Request) err
 
 }
 
-func (r *HTTPResolver) httpClient() *http.Client {
+func (r *Resolver) httpClient() *http.Client {
 	cookieJar, _ := cookiejar.New(&cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 	})

@@ -1,4 +1,4 @@
-package twitter
+package urlresolver
 
 import (
 	"context"
@@ -14,27 +14,27 @@ import (
 	"golang.org/x/net/html"
 )
 
-// TweetFetcher fetches tweets
-type TweetFetcher interface {
-	Fetch(ctx context.Context, tweetURL string) (Tweet, error)
+// tweetFetcher fetches tweets
+type tweetFetcher interface {
+	Fetch(ctx context.Context, tweetURL string) (tweetData, error)
 }
 
-// Tweet is a minimal representation of a tweet's metadata
-type Tweet struct {
+// tweetData is a minimal representation of a tweet's data
+type tweetData struct {
 	URL  string
 	Text string
 }
 
-// OembedFetcher knows how to fetch information about a tweet from Twitter's
+// oembedTweetFetcher knows how to fetch information about a tweet from Twitter's
 // oembed endpoint.
-type OembedFetcher struct {
+type oembedTweetFetcher struct {
 	baseURL    string
 	httpClient *http.Client
 }
 
-// New creates a new OembedFetcher
-func New(transport http.RoundTripper, timeout time.Duration) *OembedFetcher {
-	return &OembedFetcher{
+// newTweetFetcher creates a new oembedTweetFetcher
+func newTweetFetcher(transport http.RoundTripper, timeout time.Duration) *oembedTweetFetcher {
+	return &oembedTweetFetcher{
 		baseURL: "https://publish.twitter.com/oembed",
 		httpClient: &http.Client{
 			Transport: transport,
@@ -45,7 +45,7 @@ func New(transport http.RoundTripper, timeout time.Duration) *OembedFetcher {
 
 // Fetch returns the title and resolved URL for a tweet by fetching its
 // metadata from Twitter's oembed endpoint.
-func (f *OembedFetcher) Fetch(ctx context.Context, tweetURL string) (Tweet, error) {
+func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetData, error) {
 	params := url.Values{
 		"url": {tweetURL},
 	}
@@ -54,15 +54,15 @@ func (f *OembedFetcher) Fetch(ctx context.Context, tweetURL string) (Tweet, erro
 	req, _ := http.NewRequestWithContext(ctx, "GET", oembedURL, nil)
 	resp, err := f.httpClient.Do(req)
 	if err != nil {
-		return Tweet{}, err
+		return tweetData{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return Tweet{}, fmt.Errorf("twitter oembed error: %d", resp.StatusCode)
+		return tweetData{}, fmt.Errorf("twitter oembed error: %d", resp.StatusCode)
 	}
 
 	body, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return Tweet{}, fmt.Errorf("error reading twitter oembed response: %w", err)
+		return tweetData{}, fmt.Errorf("error reading twitter oembed response: %w", err)
 	}
 
 	var oembedResult struct {
@@ -71,14 +71,14 @@ func (f *OembedFetcher) Fetch(ctx context.Context, tweetURL string) (Tweet, erro
 		URL        string `json:"url"`
 	}
 	if err := json.Unmarshal(body, &oembedResult); err != nil {
-		return Tweet{}, fmt.Errorf("invalid json in twitter oembed response: %w", err)
+		return tweetData{}, fmt.Errorf("invalid json in twitter oembed response: %w", err)
 	}
 
 	if oembedResult.URL == "" || oembedResult.HTML == "" {
-		return Tweet{}, fmt.Errorf("unexpected json format in twitter oembed response: %q", string(body))
+		return tweetData{}, fmt.Errorf("unexpected json format in twitter oembed response: %q", string(body))
 	}
 
-	return Tweet{
+	return tweetData{
 		URL:  oembedResult.URL,
 		Text: extractTweetText(oembedResult.HTML),
 	}, nil

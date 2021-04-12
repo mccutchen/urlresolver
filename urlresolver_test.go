@@ -1,4 +1,4 @@
-package resolver
+package urlresolver
 
 import (
 	"bytes"
@@ -21,7 +21,6 @@ import (
 	"time"
 
 	"github.com/andybalholm/brotli"
-	"github.com/mccutchen/urlresolver/resolver/twitter"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/encoding/charmap"
 )
@@ -444,12 +443,16 @@ func TestResolver(t *testing.T) {
 		var wg sync.WaitGroup
 		for i := 0; i < 4; i++ {
 			wg.Add(1)
-			go func() {
+			go func(i int) {
 				defer wg.Done()
-				result, err := resolver.Resolve(context.Background(), srv.URL)
+				// note: URL query param varies, but it's a param that will be
+				// stripped by initial canonicalization before the singleflight
+				// check happens, so all requests should be coalesced.
+				url := fmt.Sprintf("%s?utm_campagin=%d", srv.URL, i)
+				result, err := resolver.Resolve(context.Background(), url)
 				assert.NoError(t, err)
 				assert.Equal(t, wantResult, result)
-			}()
+			}(i)
 		}
 		wg.Wait()
 
@@ -481,16 +484,16 @@ func assertErrorsMatch(t *testing.T, want, got error) {
 
 func TestResolveTweets(t *testing.T) {
 	okFetcher := &testTweetFetcher{
-		fetch: func(ctx context.Context, tweetURL string) (twitter.Tweet, error) {
-			return twitter.Tweet{
+		fetch: func(ctx context.Context, tweetURL string) (tweetData, error) {
+			return tweetData{
 				URL:  tweetURL,
 				Text: "tweet text",
 			}, nil
 		},
 	}
 	errFetcher := &testTweetFetcher{
-		fetch: func(ctx context.Context, tweetURL string) (twitter.Tweet, error) {
-			return twitter.Tweet{}, errors.New("twitter error")
+		fetch: func(ctx context.Context, tweetURL string) (tweetData, error) {
+			return tweetData{}, errors.New("twitter error")
 		},
 	}
 
@@ -512,7 +515,7 @@ func TestResolveTweets(t *testing.T) {
 	testCases := map[string]struct {
 		originalURL  string
 		fullTweetURL string
-		tweetFetcher twitter.TweetFetcher
+		tweetFetcher tweetFetcher
 		wantErr      error
 		wantResult   Result
 	}{
@@ -557,10 +560,10 @@ func TestResolveTweets(t *testing.T) {
 }
 
 type testTweetFetcher struct {
-	fetch func(context.Context, string) (twitter.Tweet, error)
+	fetch func(context.Context, string) (tweetData, error)
 }
 
-func (f *testTweetFetcher) Fetch(ctx context.Context, tweetURL string) (twitter.Tweet, error) {
+func (f *testTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetData, error) {
 	return f.fetch(ctx, tweetURL)
 }
 
