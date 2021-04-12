@@ -1,5 +1,3 @@
-.PHONY: clean deploy deps gcloud-auth image imagepush lint run stagedeploy test testci testcover
-
 VERSION ?= $(shell git rev-parse --short HEAD)
 
 # Built binaries will be placed here
@@ -20,36 +18,41 @@ TOOL_STATICCHECK := $(TOOL_BIN_DIR)/staticcheck
 # =============================================================================
 # build
 # =============================================================================
-build:
+$(DIST_PATH)/urlresolver: $(shell find . -name '*.go')
 	mkdir -p $(DIST_PATH)
 	CGO_ENABLED=0 go build -o $(DIST_PATH)/urlresolver ./cmd/urlresolver
 
-buildtests:
-	CGO_ENABLED=0 go test -ldflags="-s -w" -v -c -o $(DIST_PATH)/urlresolver.test ./httpbin
+build: $(DIST_PATH)/urlresolver
+.PHONY: build
 
 clean:
 	rm -rf $(DIST_PATH) $(COVERAGE_PATH)
+.PHONY: clean
 
 # =============================================================================
 # test & lint
 # =============================================================================
 test:
 	go test $(TEST_ARGS) ./...
+.PHONY: test
 
 # Test command to run for continuous integration, which includes code coverage
 # based on codecov.io's documentation:
 # https://github.com/codecov/example-go/blob/b85638743b972bd0bd2af63421fe513c6f968930/README.md
 testci: build
 	go test $(TEST_ARGS) $(COVERAGE_ARGS) ./...
+.PHONY: testci
 
 testcover: testci
 	go tool cover -html=$(COVERAGE_PATH)
+.PHONY: testcover
 
 lint: $(TOOL_GOLINT) $(TOOL_STATICCHECK)
 	test -z "$$(gofmt -d -s -e .)" || (echo "Error: gofmt failed"; gofmt -d -s -e . ; exit 1)
 	go vet ./...
 	$(TOOL_GOLINT) -set_exit_status ./...
 	$(TOOL_STATICCHECK) ./...
+.PHONY: lint
 
 
 # =============================================================================
@@ -57,17 +60,18 @@ lint: $(TOOL_GOLINT) $(TOOL_STATICCHECK)
 # =============================================================================
 run: build
 	$(DIST_PATH)/urlresolver
+.PHONY: run
 
 watch: $(TOOL_REFLEX)
 	reflex -s -r '\.(go)$$' make run
-
+.PHONY: watch
 
 # =============================================================================
 # deploy to fly.io
 # =============================================================================
 deploy:
 	flyctl deploy --strategy=rolling
-
+.PHONY: deploy
 
 # =============================================================================
 # dependencies
