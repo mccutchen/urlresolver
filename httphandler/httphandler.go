@@ -9,24 +9,25 @@ import (
 	"os"
 
 	"github.com/honeycombio/beeline-go"
-	"github.com/mccutchen/urlresolver/resolver"
+	"github.com/mccutchen/urlresolver"
 	"github.com/rs/zerolog/hlog"
 )
 
-// Errors that might be returned by the HTTP handler
+// Errors that might be returned by the HTTP handler.
 var (
 	ErrRequestTimeout = errors.New("request timeout")
 	ErrResolveError   = errors.New("resolve error")
 )
 
-type resolveResponse struct {
+// ResolveResponse defines the HTTP handler's response structure.
+type ResolveResponse struct {
 	ResolvedURL string `json:"resolved_url"`
 	Title       string `json:"title"`
 	Error       string `json:"error,omitempty"`
 }
 
 // New creates a new Handler.
-func New(resolver resolver.Resolver) *Handler {
+func New(resolver urlresolver.Interface) *Handler {
 	return &Handler{
 		resolver: resolver,
 	}
@@ -34,7 +35,7 @@ func New(resolver resolver.Resolver) *Handler {
 
 // Handler is an HTTP request handler that can resolve URLs.
 type Handler struct {
-	resolver resolver.Resolver
+	resolver urlresolver.Interface
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +66,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	// did not manage to resolve the URL.
 	result, err := h.resolver.Resolve(ctx, givenURL)
 
-	resp := resolveResponse{
+	resp := ResolveResponse{
 		ResolvedURL: result.ResolvedURL,
 		Title:       result.Title,
 	}

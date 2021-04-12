@@ -1,4 +1,4 @@
-package twitter
+package urlresolver
 
 import (
 	"context"
@@ -82,7 +82,7 @@ func TestFetch(t *testing.T) {
 	testCases := map[string]struct {
 		handler    func(*testing.T) http.HandlerFunc
 		timeout    time.Duration
-		wantResult Tweet
+		wantResult tweetData
 		wantErr    error
 	}{
 		"ok": {
@@ -107,7 +107,7 @@ func TestFetch(t *testing.T) {
 `))
 				}
 			},
-			wantResult: Tweet{
+			wantResult: tweetData{
 				Text: "Hi. As the year draws to a close, I just wanted to apologize for (probably) turning into a firehouse of bad news aimed directly into your inbox. Rest assured, those responsible have been sacked. pic.twitter.com/o6S0p7s3Ce",
 				URL:  tweetURL,
 			},
@@ -166,7 +166,7 @@ func TestFetch(t *testing.T) {
 `))
 				}
 			},
-			wantResult: Tweet{
+			wantResult: tweetData{
 				Text: "",
 				URL:  tweetURL,
 			},
@@ -178,7 +178,7 @@ func TestFetch(t *testing.T) {
 			srv := httptest.NewServer(tc.handler(t))
 			defer srv.Close()
 
-			fetcher := New(http.DefaultTransport, 0)
+			fetcher := newTweetFetcher(http.DefaultTransport, 0)
 			fetcher.baseURL = srv.URL + "/oembed"
 
 			timeout := tc.timeout
