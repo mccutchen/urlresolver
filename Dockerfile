@@ -6,9 +6,9 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY . .
-ENV DIST_PATH=/bin
-ENV BUILD_ARGS='-mod=readonly -ldflags="-s -w"'
-RUN make
+RUN BUILD_ARGS='-mod=readonly -ldflags="-s -w"' \
+    DIST_PATH=/bin \
+    make
 
 FROM gcr.io/distroless/base
 COPY --from=0 /bin/urlresolver /bin/urlresolver
