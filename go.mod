@@ -17,4 +17,4 @@ require (
 	golang.org/x/text v0.3.6
 )
 
-replace github.com/honeycombio/beeline-go => ../beeline-go
+replace github.com/honeycombio/beeline-go v1.0.0 => github.com/mccutchen/beeline-go v1.0.1
