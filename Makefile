@@ -54,7 +54,6 @@ lint: $(TOOL_GOLINT) $(TOOL_STATICCHECK)
 	$(TOOL_STATICCHECK) ./...
 .PHONY: lint
 
-
 # =============================================================================
 # run locally
 # =============================================================================
@@ -65,6 +64,17 @@ run: build
 watch: $(TOOL_REFLEX)
 	reflex -s -r '\.(go)$$' make run
 .PHONY: watch
+
+# =============================================================================
+# docker
+# =============================================================================
+buildimage:
+	docker build --tag="urlresolver:$(VERSION)" .
+.PHONY: image
+
+rundocker: buildimage
+	docker run --rm -p 8080:8080 -e PORT=8080 urlresolver:$(VERSION)
+.PHONY: rundocker
 
 # =============================================================================
 # deploy to fly.io
