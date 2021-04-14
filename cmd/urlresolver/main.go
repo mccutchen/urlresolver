@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha1"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -171,7 +173,41 @@ func initTelemetry(logger zerolog.Logger) func() {
 		Dataset:     serviceName,
 		ServiceName: serviceName,
 		WriteKey:    apiKey,
-		SampleRate:  10, // sample 1/10 or 10% events
+		SamplerHook: makeHoneycombSampler(10), // default sample rate of 10 submits 1/10 events
 	})
 	return beeline.Close
+}
+
+func makeHoneycombSampler(sampleRate int) func(map[string]interface{}) (bool, int) {
+	// Deterministic shouldSample taken from https://github.com/honeycombio/beeline-go/blob/7df4c61d91994bd39cc4c458c2e4cc3c0be007e7/sample/deterministic_sampler.go#L55-L57
+	shouldSample := func(traceId string, sampleRate int) bool {
+		upperBound := math.MaxUint32 / uint32(sampleRate)
+		sum := sha1.Sum([]byte(traceId))
+		b := sum[:4]
+		v := uint32(b[3]) | (uint32(b[2]) << 8) | (uint32(b[1]) << 16) | (uint32(b[0]) << 24)
+		return v < upperBound
+	}
+
+	return func(fields map[string]interface{}) (bool, int) {
+		// Capture all events where an error occurred
+		if _, found := fields["error"]; found {
+			return true, 1
+		}
+		if _, found := fields["app.error"]; found {
+			return true, 1
+		}
+
+		// Capture all non-200 responses from our request handlers
+		if _, found := fields["handler.name"]; found {
+			if resp, found := fields["response.status_code"]; found && resp.(int) != 200 {
+				return true, 1
+			}
+		}
+
+		// Otherwise, deterministically sample at the given rate
+		if shouldSample(fields["trace.trace_id"].(string), sampleRate) {
+			return true, sampleRate
+		}
+		return false, 0
+	}
 }
