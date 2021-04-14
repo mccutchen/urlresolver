@@ -3,7 +3,6 @@ package httphandler
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -40,6 +39,12 @@ func TestRouting(t *testing.T) {
 			wantCode: http.StatusOK,
 			wantBody: remoteSrv.URL,
 		},
+		"lookup allows HEAD requests": {
+			method:   "HEAD", // uptime monitoring often uses HEAD requests
+			path:     "/lookup?url=" + remoteSrv.URL,
+			wantCode: http.StatusOK,
+			wantBody: remoteSrv.URL,
+		},
 		"lookup arg required": {
 			method:   "GET",
 			path:     "/lookup?foo",
@@ -64,18 +69,6 @@ func TestRouting(t *testing.T) {
 			wantCode: http.StatusBadRequest,
 			wantBody: "Invalid url",
 		},
-	}
-
-	// add negative test cases for disallowed methods
-	for _, method := range []string{"POST", "PUT", "DELETE", "OPTIONS"} {
-		for _, path := range []string{"/", "/lookup"} {
-			name := fmt.Sprintf("%s %s not allowed", method, path)
-			testCases[name] = testCase{
-				method:   method,
-				path:     path,
-				wantCode: http.StatusMethodNotAllowed,
-			}
-		}
 	}
 
 	for name, tc := range testCases {

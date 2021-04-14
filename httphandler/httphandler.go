@@ -41,11 +41,6 @@ type Handler struct {
 var _ http.Handler = &Handler{} // Handler implements http.Handler
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		sendError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
 	ctx := r.Context()
 
 	givenURL := r.URL.Query().Get("url")
