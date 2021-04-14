@@ -188,7 +188,8 @@ func initTelemetry(logger zerolog.Logger) func() {
 		Dataset:     serviceName,
 		ServiceName: serviceName,
 		WriteKey:    apiKey,
-		SamplerHook: makeHoneycombSampler(10), // default sample rate of 10 submits 1/10 events
+		SampleRate:  10, // submit 10% or 1/10 events
+		// SamplerHook: makeHoneycombSampler(10), // default sample rate of 10 submits 1/10 events
 	})
 	return beeline.Close
 }
