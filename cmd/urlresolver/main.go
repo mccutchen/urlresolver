@@ -26,19 +26,32 @@ import (
 )
 
 const (
-	cacheTTL        = 120 * time.Hour
-	defaultPort     = "8080"
-	requestTimeout  = 6 * time.Second
+	cacheTTL    = 120 * time.Hour
+	defaultPort = "8080"
+
+	// requestTimeout sets an overall timeout on a single resolve request,
+	// including any redirects that must be followed and any time spent in DNS
+	// lookup, tcp connect, tls handshake, etc.
+	requestTimeout = 10 * time.Second
+
+	// shutdownTimeout is just a bit longer than we expect the longest
+	// individual request we're handling to take.
 	shutdownTimeout = requestTimeout + 1*time.Second
 
-	// dialer
-	dialTimeout = 1 * time.Second
+	// dialTimeout determines how long we'll wait to make a connection to a
+	// remote host.
+	dialTimeout = 2 * time.Second
 
-	// transport
+	// server timeouts prevent slow/malicious clients from occupying resources
+	// for too long.
+	serverReadTimeout  = 1 * time.Second
+	serverWriteTimeout = 1 * time.Second
+
+	// configure our http client to reuse connections somewhat aggressively.s
 	transportIdleConnTimeout     = 90 * time.Second
 	transportMaxIdleConns        = 100
 	transportMaxIdleConnsPerHost = 100
-	transportTLSHandshakeTimeout = 1 * time.Second
+	transportTLSHandshakeTimeout = 2 * time.Second
 )
 
 func main() {
@@ -56,8 +69,10 @@ func main() {
 	}
 
 	srv := &http.Server{
-		Addr:    net.JoinHostPort("", port),
-		Handler: applyMiddleware(mux, logger),
+		Addr:         net.JoinHostPort("", port),
+		Handler:      applyMiddleware(mux, logger),
+		ReadTimeout:  serverReadTimeout,
+		WriteTimeout: serverWriteTimeout,
 	}
 
 	listenAndServeGracefully(srv, shutdownTimeout, logger)
