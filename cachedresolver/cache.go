@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-redis/cache/v8"
 	"github.com/honeycombio/beeline-go"
+
 	"github.com/mccutchen/urlresolver"
 )
 

@@ -9,8 +9,9 @@ import (
 	"os"
 
 	"github.com/honeycombio/beeline-go"
-	"github.com/mccutchen/urlresolver"
 	"github.com/rs/zerolog/hlog"
+
+	"github.com/mccutchen/urlresolver"
 )
 
 // Errors that might be returned by the HTTP handler.

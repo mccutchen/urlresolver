@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/honeycombio/beeline-go"
+
 	"github.com/mccutchen/urlresolver"
 )
 
