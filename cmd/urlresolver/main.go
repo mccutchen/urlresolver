@@ -3,11 +3,13 @@ package main
 import (
 	"context"
 	"crypto/sha1"
+	"fmt"
 	"math"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -118,7 +120,16 @@ func applyMiddleware(h http.Handler, l zerolog.Logger) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if p := recover(); p != nil {
-					l.Error().Msgf("panic: %s", p)
+					buf := make([]byte, 2048)
+					n := runtime.Stack(buf, false)
+					stack := string(buf[:n])
+					msg := fmt.Sprintf("panic: %s", p)
+					ctx := r.Context()
+
+					l.Error().Str("stack", stack).Msg(msg)
+					beeline.AddField(ctx, "error", msg)
+					beeline.AddField(ctx, "stack", stack)
+
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 			}()
