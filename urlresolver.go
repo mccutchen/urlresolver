@@ -84,6 +84,12 @@ func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error)
 }
 
 func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
+	// Short-circuit special case for tweet URLs, which we ask Twitter to help
+	// us resolve.
+	if tweetURL, ok := MatchTweetURL(givenURL); ok {
+		return r.resolveTweet(ctx, tweetURL)
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
 		return Result{}, err
@@ -116,7 +122,8 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 	// whether or not we can successfully extract a title.
 	resolvedURL := Canonicalize(resp.Request.URL)
 
-	// Special case for tweet URLs, which we ask Twitter to help us resolve
+	// Check again for the chance to special-case tweet URLs *after* following
+	// any redirects.
 	if tweetURL, ok := MatchTweetURL(resolvedURL); ok {
 		return r.resolveTweet(ctx, tweetURL)
 	}

@@ -513,14 +513,12 @@ func TestResolveTweets(t *testing.T) {
 	}
 
 	testCases := map[string]struct {
-		originalURL  string
 		fullTweetURL string
 		tweetFetcher tweetFetcher
 		wantErr      error
 		wantResult   Result
 	}{
 		"ok": {
-			originalURL:  "/redirect-to-tweet",
 			fullTweetURL: "https://twitter.com/username/status/1234/photos/1?foo=bar",
 			tweetFetcher: okFetcher,
 			wantResult: Result{
@@ -529,7 +527,6 @@ func TestResolveTweets(t *testing.T) {
 			},
 		},
 		"error fetching tweet": {
-			originalURL:  "/redirect-to-tweet",
 			fullTweetURL: "https://twitter.com/username/status/1234/photos/1?foo=bar",
 			tweetFetcher: errFetcher,
 			wantErr:      errors.New("twitter error"),
@@ -557,6 +554,17 @@ func TestResolveTweets(t *testing.T) {
 		})
 	}
 
+	t.Run("short circuit when given twitter URL as input", func(t *testing.T) {
+		resolver := New(twitterInterceptTransport, 0)
+		resolver.tweetFetcher = okFetcher
+
+		result, err := resolver.Resolve(context.Background(), "https://twitter.com/username/status/1234/photos/1?foo=bar")
+		assert.NoError(t, err)
+		assert.Equal(t, Result{
+			ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
+			Title:       "tweet text",
+		}, result)
+	})
 }
 
 type testTweetFetcher struct {
