@@ -46,8 +46,8 @@ const (
 
 	// server timeouts prevent slow/malicious clients from occupying resources
 	// for too long.
-	serverReadTimeout  = 1 * time.Second
-	serverWriteTimeout = 1 * time.Second
+	serverReadTimeout  = 3 * time.Second
+	serverWriteTimeout = 3 * time.Second
 
 	// configure our http client to reuse connections somewhat aggressively.s
 	transportIdleConnTimeout     = 90 * time.Second
