@@ -31,6 +31,10 @@ const (
 	cacheTTL    = 120 * time.Hour
 	defaultPort = "8080"
 
+	// How long we will wait for a client to write its request or read our
+	// response.
+	clientPatience = 2 * time.Second
+
 	// requestTimeout sets an overall timeout on a single resolve request,
 	// including any redirects that must be followed and any time spent in DNS
 	// lookup, tcp connect, tls handshake, etc.
@@ -38,7 +42,7 @@ const (
 
 	// shutdownTimeout is just a bit longer than we expect the longest
 	// individual request we're handling to take.
-	shutdownTimeout = requestTimeout + 1*time.Second
+	shutdownTimeout = requestTimeout + clientPatience
 
 	// dialTimeout determines how long we'll wait to make a connection to a
 	// remote host.
@@ -46,8 +50,8 @@ const (
 
 	// server timeouts prevent slow/malicious clients from occupying resources
 	// for too long.
-	serverReadTimeout  = 3 * time.Second
-	serverWriteTimeout = 3 * time.Second
+	serverReadTimeout  = clientPatience
+	serverWriteTimeout = requestTimeout + clientPatience
 
 	// configure our http client to reuse connections somewhat aggressively.s
 	transportIdleConnTimeout     = 90 * time.Second
