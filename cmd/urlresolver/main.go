@@ -112,19 +112,19 @@ func listenAndServeGracefully(srv *http.Server, shutdownTimeout time.Duration, l
 }
 
 func applyMiddleware(h http.Handler, l zerolog.Logger) http.Handler {
+	h = hlog.AccessHandler(accessLogger)(h)
+	h = hlog.NewHandler(l)(h)
 	h = func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if p := recover(); p != nil {
-					hlog.FromRequest(r).Error().Msgf("panic: %s", p)
+					l.Error().Msgf("panic: %s", p)
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 			}()
 			next.ServeHTTP(w, r)
 		})
 	}(h)
-	h = hlog.AccessHandler(accessLogger)(h)
-	h = hlog.NewHandler(l)(h)
 	h = hnynethttp.WrapHandler(h)
 	return h
 }
