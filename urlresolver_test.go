@@ -31,9 +31,12 @@ type titleTestCase struct {
 }
 
 func TestFindTitle(t *testing.T) {
+	t.Parallel()
+
 	maxBodySize := 1024 // simulate maxBodySize of 1kb for testing purposes
 	testCases := loadTitleTestCases(t, maxBodySize)
 	for name, tc := range testCases {
+		tc := tc
 		t.Run(name, func(t *testing.T) {
 			title := findTitle(tc.body)
 			if title != tc.expectedTitle {
@@ -44,6 +47,8 @@ func TestFindTitle(t *testing.T) {
 }
 
 func TestResolver(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		name        string
 		handlerFunc http.HandlerFunc
@@ -399,7 +404,11 @@ func TestResolver(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
 			srv := httptest.NewServer(tc.handlerFunc)
 			defer srv.Close()
 
@@ -424,6 +433,8 @@ func TestResolver(t *testing.T) {
 	}
 
 	t.Run("multiple requests for the same URL are coalesced into one", func(t *testing.T) {
+		t.Parallel()
+
 		var counter int64
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			atomic.AddInt64(&counter, 1)
@@ -461,6 +472,8 @@ func TestResolver(t *testing.T) {
 
 	// an invalid URL is the only way to get an error out of Resolve
 	t.Run("invalid URL error", func(t *testing.T) {
+		t.Parallel()
+
 		resolver := New(http.DefaultTransport, 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
 		assertErrorsMatch(t, errors.New("invalid URL escape"), err)
@@ -483,6 +496,8 @@ func assertErrorsMatch(t *testing.T, want, got error) {
 }
 
 func TestResolveTweets(t *testing.T) {
+	t.Parallel()
+
 	okFetcher := &testTweetFetcher{
 		fetch: func(ctx context.Context, tweetURL string) (tweetData, error) {
 			return tweetData{
@@ -539,7 +554,11 @@ func TestResolveTweets(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
+		tc := tc
+
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				http.Redirect(w, r, tc.fullTweetURL, http.StatusFound)
 			}))
@@ -555,6 +574,8 @@ func TestResolveTweets(t *testing.T) {
 	}
 
 	t.Run("short circuit when given twitter URL as input", func(t *testing.T) {
+		t.Parallel()
+
 		resolver := New(twitterInterceptTransport, 0)
 		resolver.tweetFetcher = okFetcher
 

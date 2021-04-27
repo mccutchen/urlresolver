@@ -94,6 +94,8 @@ func TestRouting(t *testing.T) {
 }
 
 func TestLookup(t *testing.T) {
+	t.Parallel()
+
 	testCases := map[string]struct {
 		remoteHandler func(http.ResponseWriter, *http.Request)
 		remotePath    string
@@ -225,7 +227,11 @@ func TestLookup(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
+		tc := tc
+
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			transport := tc.transport
 			if transport == nil {
 				transport = http.DefaultTransport

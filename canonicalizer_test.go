@@ -12,6 +12,8 @@ type testCase struct {
 }
 
 func TestCanonicalize(t *testing.T) {
+	t.Parallel()
+
 	var testCases = []testCase{
 		// Normalization
 		{

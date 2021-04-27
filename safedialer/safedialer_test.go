@@ -6,6 +6,8 @@ import (
 )
 
 func TestSafeSocketControl(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		net     string
 		addr    string
@@ -53,7 +55,11 @@ func TestSafeSocketControl(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
+		tc := tc
+
 		t.Run(tc.net+"/"+tc.addr, func(t *testing.T) {
+			t.Parallel()
+
 			err := Control(tc.net, tc.addr, nil)
 			if tc.wantErr == nil {
 				if err != nil {

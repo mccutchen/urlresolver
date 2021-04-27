@@ -24,6 +24,8 @@ func addHeaders(t *testing.T, a, b map[string]string) map[string]string {
 }
 
 func TestFakeBrowserTransport(t *testing.T) {
+	t.Parallel()
+
 	testCases := map[string]struct {
 		injectHeaders  map[string]string
 		requestHeaders map[string]string
@@ -53,7 +55,11 @@ func TestFakeBrowserTransport(t *testing.T) {
 		},
 	}
 	for name, tc := range testCases {
+		tc := tc
+
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				gotHeaders := make(map[string]string, len(r.Header))
 				for k := range r.Header {
@@ -82,7 +88,11 @@ func TestFakeBrowserTransport(t *testing.T) {
 }
 
 func TestDecodingBodyReader(t *testing.T) {
+	t.Parallel()
+
 	t.Run("invalid gzip stream", func(t *testing.T) {
+		t.Parallel()
+
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Encoding", "gzip")
 			w.Write([]byte("definitely not gzip"))
@@ -98,6 +108,8 @@ func TestDecodingBodyReader(t *testing.T) {
 	})
 
 	t.Run("invalid flate stream", func(t *testing.T) {
+		t.Parallel()
+
 		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.Header().Set("Content-Encoding", "deflate")
 			w.Write([]byte("definitely not flate"))

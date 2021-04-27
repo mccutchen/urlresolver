@@ -17,6 +17,8 @@ import (
 )
 
 func TestCachedResolver(t *testing.T) {
+	t.Parallel()
+
 	var counter int64
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt64(&counter, 1)

@@ -13,6 +13,8 @@ import (
 )
 
 func TestMatchTweetURL(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		given   string
 		wantURL string
@@ -47,6 +49,8 @@ func TestMatchTweetURL(t *testing.T) {
 }
 
 func TestExtractTweetText(t *testing.T) {
+	t.Parallel()
+
 	testCases := []struct {
 		given string
 		want  string
@@ -77,6 +81,8 @@ func TestExtractTweetText(t *testing.T) {
 }
 
 func TestFetch(t *testing.T) {
+	t.Parallel()
+
 	const tweetURL = "https://twitter.com/thresholderbot/status/1341197329550995456"
 
 	testCases := map[string]struct {
@@ -174,7 +180,11 @@ func TestFetch(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
+		tc := tc
+
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			srv := httptest.NewServer(tc.handler(t))
 			defer srv.Close()
 
