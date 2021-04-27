@@ -44,10 +44,6 @@ var _ http.Handler = &Handler{} // Handler implements http.Handler
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	if p := r.URL.Query().Get("panic"); p != "" {
-		panic(p)
-	}
-
 	givenURL := r.URL.Query().Get("url")
 	if givenURL == "" {
 		beeline.AddField(ctx, "error", "missing_arg_url")
