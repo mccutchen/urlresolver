@@ -63,6 +63,11 @@ func TestCanonicalize(t *testing.T) {
 			given:    "https://www.youtube.com/watch?v=abcd1234&vv=XXX",
 			expected: "https://www.youtube.com/watch?v=abcd1234",
 		},
+		{
+			name:     "twitter search query",
+			given:    "https://twitter.com/search?q=query&foo=bar",
+			expected: "https://twitter.com/search?q=query",
+		},
 
 		// Domains for from which all query params are removed
 		{

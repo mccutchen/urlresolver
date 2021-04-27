@@ -64,6 +64,10 @@ var (
 	// Per-domain lists of allowed query parameters
 	domainParamAllowlist = map[*regexp.Regexp]*regexp.Regexp{
 		regexp.MustCompile(`(?i)(^|\.)youtube\.com$`): regexp.MustCompile(`^(v|p|t|list)$`),
+
+		// really, this should be restricted to twitter.com/search?q=, but
+		// allowing q= on any twitter URL is probably okay
+		regexp.MustCompile(`(?i)(^|\.)twitter\.com$`): regexp.MustCompile(`^q$`),
 	}
 
 	// All query params will be stripped from these domains, which tend to be
@@ -152,11 +156,6 @@ func shouldExcludeParam(domain string, param string) bool {
 		return true
 	}
 
-	// Do we strip all params from this domain?
-	if stripParamDomainPattern.MatchString(domain) {
-		return true
-	}
-
 	// Is there a param whitelist for this domain, and is this param on it?
 	for domainPattern, whitelistPattern := range domainParamAllowlist {
 		if domainPattern.MatchString(domain) {
@@ -164,8 +163,9 @@ func shouldExcludeParam(domain string, param string) bool {
 		}
 	}
 
-	// Default to include params
-	return false
+	// Finally, do we strip all params from this domain?  If not, default to
+	// allowing the param.
+	return stripParamDomainPattern.MatchString(domain)
 }
 
 func listToRegexp(prefix string, suffix string, patterns []string) *regexp.Regexp {
