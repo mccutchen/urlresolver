@@ -20,65 +20,78 @@ import (
 )
 
 func TestRouting(t *testing.T) {
-	handler := New(urlresolver.New(http.DefaultTransport, 0))
-	remoteSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK\n"))
-	}))
-	defer remoteSrv.Close()
+	t.Parallel()
 
 	type testCase struct {
 		method   string
-		path     string
+		url      string
 		wantCode int
 		wantBody string
 	}
 	testCases := map[string]testCase{
 		"lookup valid url ok": {
 			method:   "GET",
-			path:     "/lookup?url=" + remoteSrv.URL,
+			url:      "/lookup?url={{remoteSrv}}",
 			wantCode: http.StatusOK,
-			wantBody: remoteSrv.URL,
+			wantBody: "{{remoteSrv}}",
 		},
 		"lookup allows HEAD requests": {
 			method:   "HEAD", // uptime monitoring often uses HEAD requests
-			path:     "/lookup?url=" + remoteSrv.URL,
+			url:      "/lookup?url={{remoteSrv}}",
 			wantCode: http.StatusOK,
-			wantBody: remoteSrv.URL,
+			wantBody: "{{remoteSrv}}",
 		},
 		"lookup arg required": {
 			method:   "GET",
-			path:     "/lookup?foo",
+			url:      "/lookup?foo",
 			wantCode: http.StatusBadRequest,
 			wantBody: "Missing arg url",
 		},
 		"lookup arg must be valid URL": {
 			method:   "GET",
-			path:     "/lookup?url=" + url.QueryEscape("%%"),
+			url:      "/lookup?url=" + url.QueryEscape("%%"),
 			wantCode: http.StatusBadRequest,
 			wantBody: "Invalid url",
 		},
 		"lookup arg must be absolute URL": {
 			method:   "GET",
-			path:     `/lookup?url=path/to/foo`,
+			url:      `/lookup?url=path/to/foo`,
 			wantCode: http.StatusBadRequest,
 			wantBody: "Invalid url",
 		},
 		"lookup arg must have hostname": {
 			method:   "GET",
-			path:     `/lookup?url=https:///path/to/foo`,
+			url:      `/lookup?url=https:///path/to/foo`,
 			wantCode: http.StatusBadRequest,
 			wantBody: "Invalid url",
 		},
 	}
 
 	for name, tc := range testCases {
-		t.Run(name, func(t *testing.T) {
-			t.Logf("method=%q path=%q", tc.method, tc.path)
+		tc := tc
 
-			r, err := http.NewRequestWithContext(context.Background(), tc.method, tc.path, nil)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			handler := New(urlresolver.New(http.DefaultTransport, 0))
+			remoteSrv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				w.Write([]byte("OK\n"))
+			}))
+			defer remoteSrv.Close()
+
+			tc.url = strings.ReplaceAll(tc.url, "{{remoteSrv}}", remoteSrv.URL)
+			tc.wantBody = strings.ReplaceAll(tc.wantBody, "{{remoteSrv}}", remoteSrv.URL)
+
+			r, err := http.NewRequestWithContext(context.Background(), tc.method, tc.url, nil)
 			if err != nil {
 				t.Fatal(err)
 			}
+
+			resp, err := http.Get(remoteSrv.URL)
+			if !assert.NoError(t, err) {
+				return
+			}
+			assert.Equal(t, 200, resp.StatusCode)
 
 			w := httptest.NewRecorder()
 			handler.ServeHTTP(w, r)
