@@ -64,8 +64,11 @@ func main() {
 	defer stopTelemetry()
 
 	resolver := initResolver(logger)
+	handler := httphandler.New(resolver)
+
 	mux := http.NewServeMux()
-	mux.Handle("/lookup", httphandler.New(resolver))
+	mux.Handle("/lookup", handler)
+	mux.Handle("/resolve", handler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
