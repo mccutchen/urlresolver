@@ -67,7 +67,6 @@ func main() {
 	handler := httphandler.New(resolver)
 
 	mux := http.NewServeMux()
-	mux.Handle("/lookup", handler)
 	mux.Handle("/resolve", handler)
 
 	port := os.Getenv("PORT")
