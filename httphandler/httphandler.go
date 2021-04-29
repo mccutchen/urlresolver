@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
+	"time"
 
 	"github.com/honeycombio/beeline-go"
 	"github.com/rs/zerolog/hlog"
@@ -18,6 +20,12 @@ import (
 var (
 	ErrRequestTimeout = errors.New("request timeout")
 	ErrResolveError   = errors.New("resolve error")
+)
+
+// Cache control
+const (
+	maxAgeOK  = 365 * 24 * time.Hour
+	maxAgeErr = 5 * time.Minute
 )
 
 // ResolveResponse defines the HTTP handler's response structure.
@@ -113,8 +121,9 @@ func isValidInput(givenURL string) bool {
 }
 
 func sendJSON(w http.ResponseWriter, code int, data interface{}) {
-	w.WriteHeader(code)
 	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", cacheControlValue(code))
+	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(data)
 }
 
@@ -122,6 +131,15 @@ func sendError(w http.ResponseWriter, msg string, code int) {
 	sendJSON(w, code, map[string]string{
 		"error": msg,
 	})
+}
+
+func cacheControlValue(code int) string {
+	// Allow API responses to be cached aggressively
+	maxAge := maxAgeErr
+	if code == http.StatusOK {
+		maxAge = maxAgeOK
+	}
+	return fmt.Sprintf("public,max-age=%.0f", maxAge.Seconds())
 }
 
 func mapError(err error) error {

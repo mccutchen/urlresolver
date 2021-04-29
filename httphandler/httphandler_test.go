@@ -117,9 +117,10 @@ func TestLookup(t *testing.T) {
 		upstreamReqTimeout   time.Duration
 		testClientReqTimeout time.Duration
 
-		wantCode   int
-		wantResult ResolveResponse
-		wantErr    error
+		wantCode    int
+		wantResult  ResolveResponse
+		wantErr     error
+		wantHeaders map[string]string
 	}{
 		"ok": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -130,6 +131,10 @@ func TestLookup(t *testing.T) {
 			wantResult: ResolveResponse{
 				Title:       "title",
 				ResolvedURL: "/",
+			},
+			wantHeaders: map[string]string{
+				"Cache-Control": "public,max-age=31536000", // on success, cache for a long time
+				"Content-Type":  "application/json",
 			},
 		},
 		"timeout resolving URL": {
@@ -151,6 +156,10 @@ func TestLookup(t *testing.T) {
 				Error:       ErrRequestTimeout.Error(),
 			},
 			wantCode: http.StatusNonAuthoritativeInfo,
+			wantHeaders: map[string]string{
+				"Cache-Control": "public,max-age=300", // on error, cache for short ttl
+				"Content-Type":  "application/json",
+			},
 		},
 		"url gets resolved but title cannot be found": {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -277,6 +286,10 @@ func TestLookup(t *testing.T) {
 			}
 			if !assert.Equal(t, tc.wantCode, resp.StatusCode) {
 				return
+			}
+
+			for key, wantValue := range tc.wantHeaders {
+				assert.Equal(t, wantValue, resp.Header.Get(key), "incorrect value for header key %q", key)
 			}
 
 			body, err := ioutil.ReadAll(resp.Body)
