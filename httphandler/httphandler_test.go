@@ -107,7 +107,7 @@ func TestRouting(t *testing.T) {
 	}
 }
 
-func TestLookup(t *testing.T) {
+func TestResolve(t *testing.T) {
 	t.Parallel()
 
 	testCases := map[string]struct {
@@ -217,7 +217,7 @@ func TestLookup(t *testing.T) {
 			wantResult: ResolveResponse{
 				Title:       "",
 				ResolvedURL: "/foo",
-				Error:       ErrResolveError.Error(),
+				Error:       ErrUnsafeURL.Error(),
 			},
 		},
 

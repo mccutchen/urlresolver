@@ -24,34 +24,42 @@ package safedialer
  */
 
 import (
-	"fmt"
+	"errors"
 	"net"
 	"syscall"
+)
+
+var (
+	ErrInvalidAddress = errors.New("invalid host/port pair in address")
+	ErrInvalidIP      = errors.New("invalid IP address")
+	ErrUnsafeIP       = errors.New("unsafe IP address")
+	ErrUnsafeNetwork  = errors.New("unsafe network type")
+	ErrUnsafePort     = errors.New("unsafe port number")
 )
 
 // Control permits only TCP connections to port 80 and 443 on public
 // IP addresses. It is intended for use as a net.Dialer's Control function.
 func Control(network string, address string, conn syscall.RawConn) error {
 	if !(network == "tcp4" || network == "tcp6") {
-		return fmt.Errorf("%s is not a safe network type", network)
+		return ErrUnsafeNetwork
 	}
 
 	host, port, err := net.SplitHostPort(address)
 	if err != nil {
-		return fmt.Errorf("%s is not a valid host/port pair: %s", address, err)
+		return ErrInvalidAddress
 	}
 
 	if !(port == "80" || port == "443") {
-		return fmt.Errorf("%s is not a safe port number", port)
+		return ErrUnsafePort
 	}
 
 	ipaddress := net.ParseIP(host)
 	if ipaddress == nil {
-		return fmt.Errorf("%s is not a valid IP address", host)
+		return ErrInvalidIP
 	}
 
 	if !isPublicIPAddress(ipaddress) {
-		return fmt.Errorf("%s is not a public IP address", ipaddress)
+		return ErrUnsafeIP
 	}
 
 	return nil

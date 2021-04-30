@@ -14,12 +14,14 @@ import (
 	"github.com/rs/zerolog/hlog"
 
 	"github.com/mccutchen/urlresolver"
+	"github.com/mccutchen/urlresolver/safedialer"
 )
 
 // Errors that might be returned by the HTTP handler.
 var (
 	ErrRequestTimeout = errors.New("request timeout")
 	ErrResolveError   = errors.New("resolve error")
+	ErrUnsafeURL      = errors.New("unsafe URL")
 )
 
 // Cache control
@@ -144,16 +146,24 @@ func cacheControlValue(code int) string {
 
 func mapError(err error) error {
 	switch {
-	case isTimeout(err):
+	case isTimeoutError(err):
 		return ErrRequestTimeout
+	case isUnsafeError(err):
+		return ErrUnsafeURL
 	default:
 		return ErrResolveError
 	}
 }
 
-func isTimeout(err error) bool {
+func isTimeoutError(err error) bool {
 	if err == nil {
 		return false
 	}
-	return errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) || isTimeout(errors.Unwrap(err))
+	return errors.Is(err, context.DeadlineExceeded) || os.IsTimeout(err) || isTimeoutError(errors.Unwrap(err))
+}
+
+func isUnsafeError(err error) bool {
+	return errors.Is(err, safedialer.ErrUnsafeIP) ||
+		errors.Is(err, safedialer.ErrUnsafePort) ||
+		errors.Is(err, safedialer.ErrUnsafeNetwork)
 }
