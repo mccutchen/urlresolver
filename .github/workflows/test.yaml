@@ -1,0 +1,29 @@
+name: Test
+
+on:
+  push:
+    branches: [main] # pushes TO master
+  pull_request:
+    branches: [main] # pull requests AGAINST master
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    steps:
+    - name: Setup
+      uses: actions/setup-go@v2
+
+    - name: Checkout
+      uses: actions/checkout@v2
+
+    - name: Build
+      run: make build
+
+    - name: Test
+      run: git show && make testci
+
+    # - name: Code coverage
+    #   uses: codecov/codecov-action@v1
+    #   with:
+    #     file: ./coverage.txt
