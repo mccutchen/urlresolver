@@ -95,6 +95,10 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 		return Result{}, err
 	}
 
+	if matchTcoURL(givenURL) {
+		req.Header.Set("User-Agent", "curl/7.64.1")
+	}
+
 	resp, err := r.httpClient().Do(req)
 	if err != nil {
 		result := Result{

@@ -26,7 +26,9 @@ type fakeBrowserTransport struct {
 
 func (t *fakeBrowserTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	for key, value := range fakeBrowserHeaders {
-		req.Header.Set(key, value)
+		if req.Header.Get(key) == "" {
+			req.Header.Set(key, value)
+		}
 	}
 	resp, err := t.transport.RoundTrip(req)
 	if err != nil {

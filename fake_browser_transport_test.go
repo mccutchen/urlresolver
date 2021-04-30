@@ -15,9 +15,6 @@ func addHeaders(t *testing.T, a, b map[string]string) map[string]string {
 		result[k] = v
 	}
 	for k, v := range b {
-		if _, found := result[k]; found {
-			t.Errorf("invalid test case, key %q already exists in map", k)
-		}
 		result[k] = v
 	}
 	return result
@@ -41,16 +38,16 @@ func TestFakeBrowserTransport(t *testing.T) {
 				"X-2": "in request",
 			}),
 		},
-		"injected headers take precedence": {
+		"existing headers take precedence": {
 			requestHeaders: map[string]string{
-				"Accept-Encoding": "base64",
-				"User-Agent":      "in request",
-				"X-1":             "in request",
-				"X-2":             "in request",
+				"User-Agent": "in request",
+				"X-1":        "in request",
+				"X-2":        "in request",
 			},
 			wantHeaders: addHeaders(t, fakeBrowserHeaders, map[string]string{
-				"X-1": "in request",
-				"X-2": "in request",
+				"User-Agent": "in request",
+				"X-1":        "in request",
+				"X-2":        "in request",
 			}),
 		},
 	}

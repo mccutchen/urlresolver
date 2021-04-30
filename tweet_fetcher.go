@@ -94,6 +94,15 @@ func MatchTweetURL(s string) (string, bool) {
 	return match, match != ""
 }
 
+var tcoRegex = regexp.MustCompile(`(?i)^https?://t\.co/.+`)
+
+// matchTweetURL matches URLs pointing to tweets. If matched, returns the URL
+// to the tweet after removing extra data (extra media paths, query params,
+// etc).
+func matchTcoURL(s string) bool {
+	return tcoRegex.FindString(s) != ""
+}
+
 // extractTweetText extracts the text content of a tweet from its html form in
 // the twitter oembed response.
 //
