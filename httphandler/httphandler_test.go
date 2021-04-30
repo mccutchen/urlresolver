@@ -127,11 +127,12 @@ func TestResolve(t *testing.T) {
 			remoteHandler: func(w http.ResponseWriter, r *http.Request) {
 				w.Write([]byte(`<title>title</title>`))
 			},
-			remotePath: "/",
+			remotePath: "/?utm_tag=foo",
 			wantCode:   http.StatusOK,
 			wantResult: ResolveResponse{
-				Title:       "title",
+				GivenURL:    "/?utm_tag=foo",
 				ResolvedURL: "/",
+				Title:       "title",
 			},
 			wantHeaders: map[string]string{
 				"Cache-Control": "public,max-age=31536000", // on success, cache for a long time
@@ -149,12 +150,13 @@ func TestResolve(t *testing.T) {
 				case <-r.Context().Done():
 				}
 			},
-			remotePath:         "/foo",
+			remotePath:         "/foo?utm_tag=foo",
 			upstreamReqTimeout: 5 * time.Millisecond,
 			wantResult: ResolveResponse{
-				Title:       "",
-				ResolvedURL: "/foo",
 				Error:       ErrRequestTimeout.Error(),
+				GivenURL:    "/foo?utm_tag=foo",
+				ResolvedURL: "/foo",
+				Title:       "",
 			},
 			wantCode: http.StatusNonAuthoritativeInfo,
 			wantHeaders: map[string]string{
@@ -190,9 +192,10 @@ func TestResolve(t *testing.T) {
 			upstreamReqTimeout: 50 * time.Millisecond,
 			wantCode:           http.StatusNonAuthoritativeInfo,
 			wantResult: ResolveResponse{
-				Title:       "",
-				ResolvedURL: "/resolved",
+				GivenURL:    "/redirect",
 				Error:       ErrRequestTimeout.Error(),
+				ResolvedURL: "/resolved",
+				Title:       "",
 			},
 		},
 		"non-timeout error resolving url": {
@@ -202,9 +205,10 @@ func TestResolve(t *testing.T) {
 			remotePath: "/foo?utm_param=bar",
 			wantCode:   http.StatusNonAuthoritativeInfo,
 			wantResult: ResolveResponse{
-				Title:       "",
-				ResolvedURL: "/foo",
 				Error:       ErrResolveError.Error(),
+				GivenURL:    "/foo?utm_param=bar",
+				ResolvedURL: "/foo",
+				Title:       "",
 			},
 		},
 		"request to unsafe upstream fails": {
@@ -215,9 +219,10 @@ func TestResolve(t *testing.T) {
 			},
 			wantCode: http.StatusNonAuthoritativeInfo,
 			wantResult: ResolveResponse{
-				Title:       "",
-				ResolvedURL: "/foo",
 				Error:       ErrUnsafeURL.Error(),
+				GivenURL:    "/foo?utm_param=bar",
+				ResolvedURL: "/foo",
+				Title:       "",
 			},
 		},
 
@@ -303,6 +308,7 @@ func TestResolve(t *testing.T) {
 
 			// fix up expected URL
 			tc.wantResult.ResolvedURL = renderURL(remoteSrv.URL, tc.wantResult.ResolvedURL)
+			tc.wantResult.GivenURL = renderURL(remoteSrv.URL, tc.wantResult.GivenURL)
 			assert.Equal(t, tc.wantResult, result)
 		})
 	}
