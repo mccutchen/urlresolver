@@ -53,7 +53,6 @@ const (
 
 	// configure our http client to reuse connections somewhat aggressively.s
 	transportIdleConnTimeout     = 90 * time.Second
-	transportMaxIdleConns        = 100
 	transportMaxIdleConnsPerHost = 100
 	transportTLSHandshakeTimeout = 2 * time.Second
 )
