@@ -1,3 +1,31 @@
+/*
+Package httphandler provides a basic net/http http.Handler implementation that
+resolves URLs.
+
+The handler expects a ?url=URL_TO_RESOLVE query parameter, and responds with a
+JSON object containing the resolved URL and the resolved title:
+
+    $ curl -s localhost:8080/resolve?url=https://nyti.ms/2FVHq9v | jq .
+    {
+        "given_url": "https://nyti.ms/2FVHq9v",
+        "resolved_url": "https://www.nytimes.com/tips",
+        "title": "Tips - The New York Times"
+    }
+
+If an error occurs during resolution, the response status code will be 203
+Non-Authoritative Information (to indicate partial response) and an additional
+error field will be added and a partial result will be returned, including the
+canonicalized and potentially partially-resolved URL:
+
+    $ curl -s localhost:8080/resolve?url=https://i-do-not-exist.xyz?utm_tag=tracking-code | jq .
+    {
+        "given_url": "https://i-do-not-exist.xyz?utm_tag=tracking-code",
+        "resolved_url": "https://i-do-not-exist.xyz",
+        "title": "",
+        "error": "resolve error"
+    }
+
+*/
 package httphandler
 
 import (
@@ -32,6 +60,7 @@ const (
 
 // ResolveResponse defines the HTTP handler's response structure.
 type ResolveResponse struct {
+	GivenURL    string `json:"given_url"`
 	ResolvedURL string `json:"resolved_url"`
 	Title       string `json:"title"`
 	Error       string `json:"error,omitempty"`
@@ -75,6 +104,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	result, err := h.resolver.Resolve(ctx, givenURL)
 
 	resp := ResolveResponse{
+		GivenURL:    givenURL,
 		ResolvedURL: result.ResolvedURL,
 		Title:       result.Title,
 	}
