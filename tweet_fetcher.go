@@ -86,10 +86,10 @@ func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetD
 
 var tweetRegex = regexp.MustCompile(`(?i)^https://(mobile\.)?twitter\.com/[^/]+/status/\d+`)
 
-// MatchTweetURL matches URLs pointing to tweets. If matched, returns the URL
+// matchTweetURL matches URLs pointing to tweets. If matched, returns the URL
 // to the tweet after removing extra data (extra media paths, query params,
 // etc).
-func MatchTweetURL(s string) (string, bool) {
+func matchTweetURL(s string) (string, bool) {
 	match := tweetRegex.FindString(s)
 	return match, match != ""
 }

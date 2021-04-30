@@ -86,7 +86,7 @@ func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error)
 func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
 	// Short-circuit special case for tweet URLs, which we ask Twitter to help
 	// us resolve.
-	if tweetURL, ok := MatchTweetURL(givenURL); ok {
+	if tweetURL, ok := matchTweetURL(givenURL); ok {
 		return r.resolveTweet(ctx, tweetURL)
 	}
 
@@ -128,7 +128,7 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 
 	// Check again for the chance to special-case tweet URLs *after* following
 	// any redirects.
-	if tweetURL, ok := MatchTweetURL(resolvedURL); ok {
+	if tweetURL, ok := matchTweetURL(resolvedURL); ok {
 		return r.resolveTweet(ctx, tweetURL)
 	}
 

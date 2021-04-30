@@ -37,7 +37,7 @@ func TestMatchTweetURL(t *testing.T) {
 	}
 	for _, tc := range testCases {
 		t.Run(tc.given, func(t *testing.T) {
-			url, ok := MatchTweetURL(tc.given)
+			url, ok := matchTweetURL(tc.given)
 			if url != tc.wantURL {
 				t.Errorf("expected url == %q, got %q", tc.wantURL, url)
 			}
