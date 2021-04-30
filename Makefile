@@ -18,7 +18,7 @@ TOOL_STATICCHECK := $(TOOL_BIN_DIR)/staticcheck
 # =============================================================================
 # build
 # =============================================================================
-$(DIST_PATH)/urlresolver: $(shell find . -name '*.go')
+$(DIST_PATH)/urlresolver: $(shell find . -name '*.go') go.mod go.sum
 	mkdir -p $(DIST_PATH)
 	CGO_ENABLED=0 go build -o $(DIST_PATH)/urlresolver ./cmd/urlresolver
 
