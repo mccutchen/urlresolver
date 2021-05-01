@@ -20,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/mccutchen/urlresolver/fakebrowser"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/encoding/charmap"
 )
@@ -397,7 +396,7 @@ func TestResolver(t *testing.T) {
 			srv := httptest.NewServer(tc.handlerFunc)
 			defer srv.Close()
 
-			resolver := New(fakebrowser.New(http.DefaultTransport), 0)
+			resolver := New(http.DefaultTransport, 0)
 
 			timeout := tc.timeout
 			if timeout == 0 {
