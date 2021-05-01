@@ -36,9 +36,7 @@ type Result struct {
 	Title       string
 }
 
-// Resolver resolves a URL by following any redirects; cleaning, normalizing,
-// and canonicalizing the resulting final URL, and attempting to extract the
-// title from URLs that resolve to HTML content.
+// Resolver resolves URLs.
 type Resolver struct {
 	singleflightGroup *singleflight.Group
 	timeout           time.Duration
@@ -48,7 +46,9 @@ type Resolver struct {
 
 var _ Interface = &Resolver{} // Resolver implements Interface
 
-// New creates a new HTTPResolver that will use the given transport.
+// New creates a new Resolvers that uses the given transport to make HTTP
+// requests and applies the given timeout to the overall process (including any
+// redirects that must be followed).
 func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
 	// Requests through this transport will masquerade as a real web browser
 	transport = &fakeBrowserTransport{
