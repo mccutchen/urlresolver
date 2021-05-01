@@ -9,6 +9,19 @@ import (
 	"github.com/PuerkitoBio/purell"
 )
 
+// NormalizationFlags defines the normalization flags the purell package will
+// use during canonicalization.
+//
+// See https://godoc.org/github.com/PuerkitoBio/purell#NormalizationFlags
+var NormalizationFlags = (purell.FlagsSafe |
+	purell.FlagRemoveDotSegments |
+	purell.FlagRemoveDuplicateSlashes |
+	purell.FlagDecodeDWORDHost |
+	purell.FlagDecodeOctalHost |
+	purell.FlagDecodeHexHost |
+	purell.FlagRemoveUnnecessaryHostDots |
+	purell.FlagRemoveEmptyPortSeparator)
+
 var (
 	// Query parameters matching these patterns will ALWAYS be stripped.  The
 	// categorized patterns below were largely sourced from this Chrome
@@ -104,33 +117,23 @@ var (
 	})
 )
 
-// See https://godoc.org/github.com/PuerkitoBio/purell#NormalizationFlags
-const purellNormalizationFlags = (purell.FlagsSafe |
-	purell.FlagRemoveDotSegments |
-	purell.FlagRemoveDuplicateSlashes |
-	purell.FlagDecodeDWORDHost |
-	purell.FlagDecodeOctalHost |
-	purell.FlagDecodeHexHost |
-	purell.FlagRemoveUnnecessaryHostDots |
-	purell.FlagRemoveEmptyPortSeparator)
-
-// Canonicalize filters and normalizes a URL
+// Canonicalize filters unnecessary query params and then normalizes a URL,
+// ensuring consistent case, encoding, sorting of params, etc.
 func Canonicalize(u *url.URL) string {
-	return Normalize(Clean(u))
+	return normalize(clean(u))
 }
 
-// Normalize normalizes a URL, ensuring consistent case, encoding, sorting of
-// params, etc. See purellNormalizationFlags for the normalization rules we're
-// asking the purell library to apply.
-func Normalize(u *url.URL) string {
+// normalize normalizes a URL, ensuring consistent case, encoding, sorting of
+// params, etc.
+func normalize(u *url.URL) string {
 	if lowercaseDomainPattern.MatchString(u.Host) {
 		u.Path = strings.ToLower(u.Path)
 	}
-	return purell.NormalizeURL(u, purellNormalizationFlags)
+	return purell.NormalizeURL(u, NormalizationFlags)
 }
 
-// Clean removes unnecessary query params and fragment identifiers from a URL
-func Clean(u *url.URL) *url.URL {
+// clean removes unnecessary query params and fragment identifiers from a URL.
+func clean(u *url.URL) *url.URL {
 	u.RawQuery = filterParams(u).Encode()
 	u.Fragment = ""
 	return u
