@@ -1,7 +1,7 @@
 # urlresolver
 
 [![GoDoc](https://godoc.org/github.com/mccutchen/go-httpbin?status.svg)](https://pkg.go.dev/github.com/mccutchen/urlresolver)
-![Build status](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml/badge.svg)
+[![Build status](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml/badge.svg)](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/mccutchen/go-httpbin/branch/master/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
 
 
