@@ -52,5 +52,5 @@ jobs:
     - name: Code coverage
       uses: codecov/codecov-action@v1
       with:
-        file: ./coverage.txt
+        file: ./coverage.out
       if: ${{ matrix.go-version == '1.16' }}
