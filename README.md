@@ -1,8 +1,8 @@
 # urlresolver
 
-[![GoDoc](https://godoc.org/github.com/mccutchen/go-httpbin?status.svg)](https://pkg.go.dev/github.com/mccutchen/urlresolver)
+[![GoDoc](https://pkg.go.dev/badge/github.com/mccutchen/urlresolver)](https://pkg.go.dev/github.com/mccutchen/urlresolver)
 [![Build status](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml/badge.svg)](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml)
-[![Coverage](https://codecov.io/gh/mccutchen/go-httpbin/branch/master/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
+[![Coverage](https://codecov.io/gh/mccutchen/urlresolver/branch/main/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
 
 A golang package that "resolves" a URL into its canonical form by following any
 redirects, normalizing query parameters, and attempting to fetch its title.
