@@ -4,7 +4,6 @@
 [![Build status](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml/badge.svg)](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/mccutchen/go-httpbin/branch/master/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
 
-
 A golang package that "resolves" a URL into its canonical form by following any
 redirects, normalizing query parameters, and attempting to fetch its title.
 
@@ -16,10 +15,6 @@ be wrapped in one or more URL shorteners (t.co, bit.ly, etc).
 A URL is resolved by issuing a `GET` request and following any redirects until
 a non-`30x` response is received.
 
-These requests are made by a customized transport that sends fake browser
-headers and properly handles cookies between redirects, in an underhanded
-attempt to maximize the possibility of fetching an accurate title.
-
 ## Canonicalizing
 
 The final URL is aggressively canonicalized using a combination of
@@ -27,7 +22,7 @@ The final URL is aggressively canonicalized using a combination of
 unnecessary query params (e.g. `utm_*` tracking params), normalizing case (e.g.
 `twitter.com/Thresholderbot` and `twitter.com/thresholderbot` are the same).
 
-The canonicalization is optimized for URLs that are shared on social media.
+Canonicalization is optimized for URLs that are shared on social media.
 
 ## Security
 
