@@ -20,6 +20,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mccutchen/urlresolver/fakebrowser"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/encoding/charmap"
 )
@@ -359,22 +360,6 @@ func TestResolver(t *testing.T) {
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/html")
 				w.Header().Set("Content-Encoding", "gzip")
-				w2 := gzip.NewWriter(w)
-				defer w2.Close()
-				body := fmt.Sprintf("<html><head><title>Iñtërnâtiônàlizætiøn</title></head><body>%s</body></html>", strings.Repeat("*", maxBodySize*2))
-				mustWriteAll(t, w2, body)
-			},
-			givenURL: "/foo",
-			wantResult: Result{
-				ResolvedURL: "/foo",
-				Title:       "Iñtërnâtiônàlizætiøn",
-			},
-		},
-		{
-			name: "invalid gzip stream",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "text/html")
-				w.Header().Set("Content-Encoding", "gzip")
 				w.Header().Set("Content-Encoding", "gzip")
 				mustWriteAll(t, w, "<title>definitely not gzip</title>")
 			},
@@ -396,7 +381,7 @@ func TestResolver(t *testing.T) {
 			srv := httptest.NewServer(tc.handlerFunc)
 			defer srv.Close()
 
-			resolver := New(http.DefaultTransport, 0)
+			resolver := New(fakebrowser.New(http.DefaultTransport), 0)
 
 			timeout := tc.timeout
 			if timeout == 0 {

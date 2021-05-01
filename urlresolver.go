@@ -46,19 +46,13 @@ type Resolver struct {
 
 var _ Interface = &Resolver{} // Resolver implements Interface
 
-// New creates a new Resolvers that uses the given transport to make HTTP
+// New creates a new Resolver that uses the given transport to make HTTP
 // requests and applies the given timeout to the overall process (including any
 // redirects that must be followed).
 func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
-	// Requests through this transport will masquerade as a real web browser
-	transport = &fakeBrowserTransport{
-		transport: transport,
-	}
-
 	if timeout == 0 {
 		timeout = defaultTimeout
 	}
-
 	return &Resolver{
 		singleflightGroup: &singleflight.Group{},
 		timeout:           timeout,
