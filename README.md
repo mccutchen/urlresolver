@@ -1,8 +1,12 @@
 # urlresolver
 
-A golang package and associated HTTP service that "resolves" a URL into its
-canonical form and, if it points to an HTML document, attempts to fetch its
-title.
+[![GoDoc](https://godoc.org/github.com/mccutchen/go-httpbin?status.svg)](https://pkg.go.dev/github.com/mccutchen/urlresolver)
+[![Build status](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml/badge.svg)](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml)
+[![Coverage](https://codecov.io/gh/mccutchen/go-httpbin/branch/master/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
+
+
+A golang package that "resolves" a URL into its canonical form by following any
+redirects, normalizing query parameters, and attempting to fetch its title.
 
 It is used by [Thresholderbot][] to resolve URLs found in tweets, which tend to
 be wrapped in one or more URL shorteners (t.co, bit.ly, etc).
