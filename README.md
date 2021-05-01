@@ -4,18 +4,18 @@
 [![Build status](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml/badge.svg)](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml)
 [![Coverage](https://codecov.io/gh/mccutchen/urlresolver/branch/main/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
 
-A golang package that "resolves" a URL into its canonical form by following any
-redirects, normalizing query parameters, and attempting to fetch its title.
+A golang package that "resolves" a given URL by issuing a GET request,
+following any redirects, canonicalizing the final URL, and attempting to
+extract the title from the final response body.
 
-It is used by [Thresholderbot][] to resolve URLs found in tweets, which tend to
-be wrapped in one or more URL shorteners (t.co, bit.ly, etc).
+## Methodology
 
-## Resolving
+### Resolving
 
 A URL is resolved by issuing a `GET` request and following any redirects until
 a non-`30x` response is received.
 
-## Canonicalizing
+### Canonicalizing
 
 The final URL is aggressively canonicalized using a combination of
 [PuerkitoBio/purell][purell] and some manual heuristics for removing
