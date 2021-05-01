@@ -2,7 +2,6 @@
 package urlresolver
 
 import (
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -35,8 +34,9 @@ func TestFakeBrowserTransport(t *testing.T) {
 				"X-2": "in request",
 			},
 			wantHeaders: addHeaders(t, fakeBrowserHeaders, map[string]string{
-				"X-1": "in request",
-				"X-2": "in request",
+				"Accept-Encoding": "gzip", // added by stdlib http client
+				"X-1":             "in request",
+				"X-2":             "in request",
 			}),
 		},
 		"existing headers take precedence": {
@@ -46,9 +46,10 @@ func TestFakeBrowserTransport(t *testing.T) {
 				"X-2":        "in request",
 			},
 			wantHeaders: addHeaders(t, fakeBrowserHeaders, map[string]string{
-				"User-Agent": "in request",
-				"X-1":        "in request",
-				"X-2":        "in request",
+				"Accept-Encoding": "gzip", // added by stdlib http client
+				"User-Agent":      "in request",
+				"X-1":             "in request",
+				"X-2":             "in request",
 			}),
 		},
 	}
@@ -83,51 +84,4 @@ func TestFakeBrowserTransport(t *testing.T) {
 			assert.Equal(t, resp.StatusCode, http.StatusOK)
 		})
 	}
-}
-
-func TestDecodingBodyReader(t *testing.T) {
-	t.Parallel()
-
-	t.Run("invalid gzip stream", func(t *testing.T) {
-		t.Parallel()
-
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Encoding", "gzip")
-			w.Write([]byte("definitely not gzip"))
-		}))
-		defer srv.Close()
-
-		client := &http.Client{
-			Transport: &fakeBrowserTransport{http.DefaultTransport},
-		}
-		resp, err := client.Get(srv.URL)
-		assert.Nil(t, resp)
-		assert.Error(t, err)
-	})
-
-	t.Run("invalid flate stream", func(t *testing.T) {
-		t.Parallel()
-
-		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("Content-Encoding", "deflate")
-			w.Write([]byte("definitely not flate"))
-		}))
-		defer srv.Close()
-
-		client := &http.Client{
-			Transport: &fakeBrowserTransport{http.DefaultTransport},
-		}
-		resp, err := client.Get(srv.URL)
-		if !assert.NoError(t, err) {
-			return
-		}
-
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
-		body, err := ioutil.ReadAll(resp.Body)
-		assert.Error(t, err)
-		assert.Len(t, body, 0)
-
-		err = resp.Body.Close()
-		assert.Error(t, err)
-	})
 }

@@ -3,7 +3,6 @@ package urlresolver
 
 import (
 	"bytes"
-	"compress/flate"
 	"compress/gzip"
 	"context"
 	"errors"
@@ -21,7 +20,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/andybalholm/brotli"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/encoding/charmap"
 )
@@ -357,36 +355,6 @@ func TestResolver(t *testing.T) {
 			},
 		},
 		{
-			name: "deflated",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "text/html")
-				w.Header().Set("Content-Encoding", "deflate")
-				w2, _ := flate.NewWriter(w, 9) // If level is in the range [-2, 9] then the error returned will be nil.
-				defer w2.Close()
-				mustWriteAll(t, w2, `<html><head><title>Iñtërnâtiônàlizætiøn</title></head></html>`)
-			},
-			givenURL: "/foo",
-			wantResult: Result{
-				ResolvedURL: "/foo",
-				Title:       "Iñtërnâtiônàlizætiøn",
-			},
-		},
-		{
-			name: "brotli",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
-				w.Header().Set("Content-Type", "text/html")
-				w.Header().Set("Content-Encoding", "br")
-				w2 := brotli.NewWriter(w)
-				defer w2.Close()
-				mustWriteAll(t, w2, `<html><head><title>Iñtërnâtiônàlizætiøn</title></head></html>`)
-			},
-			givenURL: "/foo",
-			wantResult: Result{
-				ResolvedURL: "/foo",
-				Title:       "Iñtërnâtiônàlizætiøn",
-			},
-		},
-		{
 			name: "gzipped larger than max body size",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
 				w.Header().Set("Content-Type", "text/html")
@@ -400,6 +368,21 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/foo",
 				Title:       "Iñtërnâtiônàlizætiøn",
+			},
+		},
+		{
+			name: "invalid gzip stream",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "text/html")
+				w.Header().Set("Content-Encoding", "gzip")
+				w.Header().Set("Content-Encoding", "gzip")
+				mustWriteAll(t, w, "<title>definitely not gzip</title>")
+			},
+			givenURL: "/foo",
+			wantErr:  errors.New("error reading response: gzip: invalid header"),
+			wantResult: Result{
+				ResolvedURL: "/foo",
+				Title:       "",
 			},
 		},
 	}

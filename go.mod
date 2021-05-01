@@ -6,7 +6,6 @@ require (
 	github.com/PuerkitoBio/purell v1.1.1
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/alicebob/miniredis/v2 v2.14.3
-	github.com/andybalholm/brotli v1.0.2
 	github.com/go-redis/cache/v8 v8.4.0
 	github.com/go-redis/redis/v8 v8.8.2
 	github.com/honeycombio/beeline-go v1.0.0

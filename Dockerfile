@@ -1,12 +1,15 @@
+# syntax = docker/dockerfile:1-experimental
 FROM golang:1.16
 
 WORKDIR /go/src/app
 
 COPY go.mod go.sum ./
-RUN go mod download
+RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
+    go mod download
 
 COPY . .
-RUN BUILD_ARGS='-mod=readonly -ldflags="-s -w"' \
+RUN --mount=type=cache,id=gobuild,target=/root/.cache/go-build \
+    BUILD_ARGS='-mod=readonly -ldflags="-s -w"' \
     DIST_PATH=/bin \
     make
 
