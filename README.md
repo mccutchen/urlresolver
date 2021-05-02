@@ -1,8 +1,8 @@
 # urlresolver
 
-[![GoDoc](https://pkg.go.dev/badge/github.com/mccutchen/urlresolver)](https://pkg.go.dev/github.com/mccutchen/urlresolver)
+[![Documentation](https://pkg.go.dev/badge/github.com/mccutchen/urlresolver)](https://pkg.go.dev/github.com/mccutchen/urlresolver)
 [![Build status](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml/badge.svg)](https://github.com/mccutchen/urlresolver/actions/workflows/test.yaml)
-[![Coverage](https://codecov.io/gh/mccutchen/urlresolver/branch/main/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
+[![Code coverage](https://codecov.io/gh/mccutchen/urlresolver/branch/main/graph/badge.svg)](https://codecov.io/gh/mccutchen/urlresolver)
 
 A golang package that "resolves" a given URL by issuing a GET request,
 following any redirects, canonicalizing the final URL, and attempting to

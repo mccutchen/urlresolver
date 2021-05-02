@@ -1,4 +1,4 @@
-name: Test
+name: test
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    name: Test
+    name: test
     runs-on: ubuntu-latest
 
     strategy:
@@ -18,12 +18,12 @@ jobs:
         - '1.15'
 
     steps:
-    - name: Setup
+    - name: setup
       uses: actions/setup-go@v2
       with:
         go-version: ${{matrix.go-version}}
 
-    - name: Checkout
+    - name: checkout
       uses: actions/checkout@v2
 
     - id: go-cache-paths
@@ -31,22 +31,22 @@ jobs:
         echo "::set-output name=go-build::$(go env GOCACHE)"
         echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 
-    - name: Cache build
+    - name: cache build
       uses: actions/cache@v2
       with:
         path: ${{ steps.go-cache-paths.outputs.go-build }}
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-build-${{ hashFiles('**/go.sum') }}
 
-    - name: Cache mod
+    - name: cache mod
       uses: actions/cache@v2
       with:
         path: ${{ steps.go-cache-paths.outputs.go-mod }}
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-mod-${{ hashFiles('**/go.sum') }}
 
-    - name: Test
+    - name: test
       run: make testci
 
-    - name: Code coverage
+    - name: report code coverage
       uses: codecov/codecov-action@v1
       with:
         file: ./coverage.out
