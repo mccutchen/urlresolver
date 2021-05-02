@@ -443,7 +443,7 @@ func TestResolver(t *testing.T) {
 				// note: URL query param varies, but it's a param that will be
 				// stripped by initial canonicalization before the singleflight
 				// check happens, so all requests should be coalesced.
-				url := fmt.Sprintf("%s?utm_campagin=%d", srv.URL, i)
+				url := fmt.Sprintf("%s?utm_campaign=%d", srv.URL, i)
 				result, err := resolver.Resolve(context.Background(), url)
 				assert.NoError(t, err)
 				assert.Equal(t, wantResult, result)

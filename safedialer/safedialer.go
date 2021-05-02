@@ -29,6 +29,7 @@ import (
 	"syscall"
 )
 
+// Errors that may be returned from Control.
 var (
 	ErrInvalidAddress = errors.New("invalid host/port pair in address")
 	ErrInvalidIP      = errors.New("invalid IP address")

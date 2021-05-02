@@ -65,8 +65,8 @@ func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
 // the final URL, and attempting to extract the title from the final response
 // body.
 func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
-	// Immediately canonicalize the given URL to slighly increase the chance of
-	// coalescing multiple requests into one.
+	// Immediately canonicalize the given URL to slightly increase the chance
+	// of coalescing multiple requests into one.
 	if u, err := url.Parse(givenURL); err == nil {
 		givenURL = Canonicalize(u)
 	}

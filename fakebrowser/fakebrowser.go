@@ -38,6 +38,8 @@ func New(transport http.RoundTripper, opts ...Option) *Transport {
 	return t
 }
 
+// RoundTrip executes a single HTTP transaction, after injecting a set of
+// headers into the outgoing request.
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
 	// existing headers take precedence over injected headers
 	for key, value := range t.injectHeaders {
