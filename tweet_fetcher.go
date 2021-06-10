@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"golang.org/x/net/html"
+
+	"github.com/mccutchen/urlresolver/bufferpool"
 )
 
 // tweetFetcher fetches tweets
@@ -30,6 +32,7 @@ type tweetData struct {
 type oembedTweetFetcher struct {
 	baseURL    string
 	httpClient *http.Client
+	pool       *bufferpool.BufferPool
 }
 
 // newTweetFetcher creates a new oembedTweetFetcher
@@ -40,6 +43,7 @@ func newTweetFetcher(transport http.RoundTripper, timeout time.Duration) *oembed
 			Transport: transport,
 			Timeout:   timeout,
 		},
+		pool: bufferpool.New(),
 	}
 }
 
@@ -60,8 +64,10 @@ func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetD
 		return tweetData{}, fmt.Errorf("twitter oembed error: %d", resp.StatusCode)
 	}
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
+	buf := f.pool.Get()
+	defer f.pool.Put(buf)
+
+	if _, err := io.Copy(buf, resp.Body); err != nil {
 		return tweetData{}, fmt.Errorf("error reading twitter oembed response: %w", err)
 	}
 
@@ -70,12 +76,12 @@ func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetD
 		HTML       string `json:"html"`
 		URL        string `json:"url"`
 	}
-	if err := json.Unmarshal(body, &oembedResult); err != nil {
+	if err := json.Unmarshal(buf.Bytes(), &oembedResult); err != nil {
 		return tweetData{}, fmt.Errorf("invalid json in twitter oembed response: %w", err)
 	}
 
 	if oembedResult.URL == "" || oembedResult.HTML == "" {
-		return tweetData{}, fmt.Errorf("unexpected json format in twitter oembed response: %q", string(body))
+		return tweetData{}, fmt.Errorf("unexpected json format in twitter oembed response: %q", buf.String())
 	}
 
 	return tweetData{
