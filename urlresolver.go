@@ -5,7 +5,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -17,6 +16,8 @@ import (
 	"golang.org/x/net/html/charset"
 	"golang.org/x/net/publicsuffix"
 	"golang.org/x/sync/singleflight"
+
+	"github.com/mccutchen/urlresolver/bufferpool"
 )
 
 const (
@@ -38,6 +39,7 @@ type Result struct {
 
 // Resolver resolves URLs.
 type Resolver struct {
+	pool              *bufferpool.BufferPool
 	singleflightGroup *singleflight.Group
 	timeout           time.Duration
 	transport         http.RoundTripper
@@ -54,6 +56,7 @@ func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
 		timeout = defaultTimeout
 	}
 	return &Resolver{
+		pool:              bufferpool.New(),
 		singleflightGroup: &singleflight.Group{},
 		timeout:           timeout,
 		transport:         transport,
@@ -126,7 +129,7 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 		return r.resolveTweet(ctx, tweetURL)
 	}
 
-	title, err := maybeParseTitle(resp)
+	title, err := r.maybeParseTitle(resp)
 	return Result{
 		ResolvedURL: resolvedURL,
 		Title:       title,
@@ -175,12 +178,12 @@ func (r *Resolver) httpClient() *http.Client {
 	}
 }
 
-func maybeParseTitle(resp *http.Response) (string, error) {
+func (r *Resolver) maybeParseTitle(resp *http.Response) (string, error) {
 	if !shouldParseTitle(resp) {
 		return "", nil
 	}
 
-	body, err := peekBody(resp)
+	body, err := r.peekBody(resp)
 	if err != nil {
 		return "", err
 	}
@@ -188,23 +191,25 @@ func maybeParseTitle(resp *http.Response) (string, error) {
 	return findTitle(body), nil
 }
 
-func shouldParseTitle(resp *http.Response) bool {
-	contentType := resp.Header.Get("Content-Type")
-	return strings.Contains(contentType, "html") || contentType == ""
-}
+func (r *Resolver) peekBody(resp *http.Response) ([]byte, error) {
+	buf := r.pool.Get()
+	defer r.pool.Put(buf)
 
-func peekBody(resp *http.Response) ([]byte, error) {
-	rawBody, err := ioutil.ReadAll(io.LimitReader(resp.Body, maxBodySize))
-	if err != nil {
+	if _, err := io.Copy(buf, io.LimitReader(resp.Body, maxBodySize)); err != nil {
 		return nil, fmt.Errorf("error reading response: %w", err)
 	}
 
-	body, err := decodeBody(rawBody, resp.Header.Get("Content-Type"))
+	body, err := decodeBody(buf.Bytes(), resp.Header.Get("Content-Type"))
 	if err != nil {
 		return nil, fmt.Errorf("error decoding response: %w", err)
 	}
 
 	return body, nil
+}
+
+func shouldParseTitle(resp *http.Response) bool {
+	contentType := resp.Header.Get("Content-Type")
+	return strings.Contains(contentType, "html") || contentType == ""
 }
 
 func decodeBody(body []byte, contentType string) ([]byte, error) {
