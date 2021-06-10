@@ -55,12 +55,13 @@ func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
 	if timeout == 0 {
 		timeout = defaultTimeout
 	}
+	pool := bufferpool.New()
 	return &Resolver{
-		pool:              bufferpool.New(),
+		pool:              pool,
 		singleflightGroup: &singleflight.Group{},
 		timeout:           timeout,
 		transport:         transport,
-		tweetFetcher:      newTweetFetcher(transport, timeout),
+		tweetFetcher:      newTweetFetcher(transport, timeout, pool),
 	}
 }
 

@@ -36,14 +36,14 @@ type oembedTweetFetcher struct {
 }
 
 // newTweetFetcher creates a new oembedTweetFetcher
-func newTweetFetcher(transport http.RoundTripper, timeout time.Duration) *oembedTweetFetcher {
+func newTweetFetcher(transport http.RoundTripper, timeout time.Duration, pool *bufferpool.BufferPool) *oembedTweetFetcher {
 	return &oembedTweetFetcher{
 		baseURL: "https://publish.twitter.com/oembed",
 		httpClient: &http.Client{
 			Transport: transport,
 			Timeout:   timeout,
 		},
-		pool: bufferpool.New(),
+		pool: pool,
 	}
 }
 

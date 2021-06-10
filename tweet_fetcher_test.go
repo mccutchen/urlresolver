@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mccutchen/urlresolver/bufferpool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -202,7 +203,7 @@ func TestFetch(t *testing.T) {
 			srv := httptest.NewServer(tc.handler(t))
 			defer srv.Close()
 
-			fetcher := newTweetFetcher(http.DefaultTransport, 0)
+			fetcher := newTweetFetcher(http.DefaultTransport, 0, bufferpool.New())
 			fetcher.baseURL = srv.URL + "/oembed"
 
 			timeout := tc.timeout
