@@ -130,6 +130,19 @@ func TestFetch(t *testing.T) {
 			},
 			wantErr: errors.New("context deadline exceeded"),
 		},
+		"timeout during read": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					w.(http.Flusher).Flush()
+					select {
+					case <-time.After(10 * time.Second):
+					case <-r.Context().Done():
+					}
+				}
+			},
+			wantErr: errors.New("context deadline exceeded"),
+		},
 		"server error": {
 			handler: func(t *testing.T) http.HandlerFunc {
 				return func(w http.ResponseWriter, r *http.Request) {
