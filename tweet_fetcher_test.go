@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/mccutchen/urlresolver/bufferpool"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -130,6 +131,19 @@ func TestFetch(t *testing.T) {
 			},
 			wantErr: errors.New("context deadline exceeded"),
 		},
+		"timeout during read": {
+			handler: func(t *testing.T) http.HandlerFunc {
+				return func(w http.ResponseWriter, r *http.Request) {
+					w.WriteHeader(http.StatusOK)
+					w.(http.Flusher).Flush()
+					select {
+					case <-time.After(10 * time.Second):
+					case <-r.Context().Done():
+					}
+				}
+			},
+			wantErr: errors.New("context deadline exceeded"),
+		},
 		"server error": {
 			handler: func(t *testing.T) http.HandlerFunc {
 				return func(w http.ResponseWriter, r *http.Request) {
@@ -189,7 +203,7 @@ func TestFetch(t *testing.T) {
 			srv := httptest.NewServer(tc.handler(t))
 			defer srv.Close()
 
-			fetcher := newTweetFetcher(http.DefaultTransport, 0)
+			fetcher := newTweetFetcher(http.DefaultTransport, 0, bufferpool.New())
 			fetcher.baseURL = srv.URL + "/oembed"
 
 			timeout := tc.timeout
