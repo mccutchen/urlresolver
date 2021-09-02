@@ -33,8 +33,9 @@ type Interface interface {
 
 // Result is the result of resolving a URL.
 type Result struct {
-	ResolvedURL string
-	Title       string
+	ResolvedURL      string
+	Title            string
+	IntermediateURLs []string
 }
 
 // Resolver resolves URLs.
@@ -82,27 +83,27 @@ func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error)
 }
 
 func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
+	result := Result{ResolvedURL: givenURL}
+
 	// Short-circuit special case for tweet URLs, which we ask Twitter to help
 	// us resolve.
 	if tweetURL, ok := matchTweetURL(givenURL); ok {
-		return r.resolveTweet(ctx, tweetURL)
+		return r.resolveTweet(ctx, tweetURL, result)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
-		return Result{}, err
+		return result, err
 	}
 
 	if matchTcoURL(givenURL) {
 		req.Header.Set("User-Agent", "curl/7.64.1")
 	}
 
-	resp, err := r.httpClient().Do(req)
-	if err != nil {
-		result := Result{
-			ResolvedURL: givenURL,
-		}
+	recorder := &redirectRecorder{&result}
 
+	resp, err := r.httpClient(recorder).Do(req)
+	if err != nil {
 		// If there's a URL associated with the error, we still want to
 		// canonicalize it and return a partial result. This gives us a useful
 		// result when we go through one or more redirects but the final URL
@@ -122,57 +123,38 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 
 	// At this point, we have at least resolved and canonicalized the URL,
 	// whether or not we can successfully extract a title.
-	resolvedURL := Canonicalize(resp.Request.URL)
+	result.ResolvedURL = Canonicalize(resp.Request.URL)
 
 	// Check again for the chance to special-case tweet URLs *after* following
 	// any redirects.
-	if tweetURL, ok := matchTweetURL(resolvedURL); ok {
-		return r.resolveTweet(ctx, tweetURL)
+	if tweetURL, ok := matchTweetURL(result.ResolvedURL); ok {
+		return r.resolveTweet(ctx, tweetURL, result)
 	}
 
-	title, err := r.maybeParseTitle(resp)
-	return Result{
-		ResolvedURL: resolvedURL,
-		Title:       title,
-	}, err
+	result.Title, err = r.maybeParseTitle(resp)
+	return result, err
 }
 
-func (r *Resolver) resolveTweet(ctx context.Context, tweetURL string) (Result, error) {
+func (r *Resolver) resolveTweet(ctx context.Context, tweetURL string, result Result) (Result, error) {
 	tweet, err := r.tweetFetcher.Fetch(ctx, tweetURL)
 	if err != nil {
 		// We have a resolved tweet URL, so we return a partial result along
 		// with the error
-		return Result{ResolvedURL: tweetURL}, err
+		result.ResolvedURL = tweetURL
+		return result, err
 	}
 
-	return Result{
-		ResolvedURL: tweet.URL,
-		Title:       tweet.Text,
-	}, nil
+	result.ResolvedURL = tweet.URL
+	result.Title = tweet.Text
+	return result, nil
 }
 
-func (r *Resolver) checkRedirect(req *http.Request, via []*http.Request) error {
-	if len(via) >= maxRedirects {
-		return http.ErrUseLastResponse
-	}
-	// Work around instagram auth redirect
-	if strings.Contains(req.URL.String(), "instagram.com/accounts/login/") {
-		return http.ErrUseLastResponse
-	}
-	// Work around forbes paywall interstitial
-	if strings.Contains(req.URL.String(), "forbes.com/forbes/welcome") {
-		return http.ErrUseLastResponse
-	}
-	return nil
-
-}
-
-func (r *Resolver) httpClient() *http.Client {
+func (r *Resolver) httpClient(recorder *redirectRecorder) *http.Client {
 	cookieJar, _ := cookiejar.New(&cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 	})
 	return &http.Client{
-		CheckRedirect: r.checkRedirect,
+		CheckRedirect: recorder.checkRedirect,
 		Jar:           cookieJar,
 		Transport:     r.transport,
 		Timeout:       r.timeout,
@@ -240,4 +222,26 @@ func findTitle(body []byte) string {
 		return ""
 	}
 	return html.UnescapeString(string(bytes.TrimSpace(matches[1])))
+}
+
+type redirectRecorder struct {
+	result *Result
+}
+
+func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request) error {
+	r.result.IntermediateURLs = append(r.result.IntermediateURLs, via[len(via)-1].URL.String())
+
+	if len(via) >= maxRedirects {
+		return http.ErrUseLastResponse
+	}
+	// Work around instagram auth redirect
+	if strings.Contains(req.URL.String(), "instagram.com/accounts/login/") {
+		return http.ErrUseLastResponse
+	}
+	// Work around forbes paywall interstitial
+	if strings.Contains(req.URL.String(), "forbes.com/forbes/welcome") {
+		return http.ErrUseLastResponse
+	}
+	return nil
+
 }
