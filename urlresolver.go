@@ -33,9 +33,9 @@ type Interface interface {
 
 // Result is the result of resolving a URL.
 type Result struct {
-	ResolvedURL string
-	Title       string
-	Hops        []string
+	ResolvedURL      string
+	Title            string
+	IntermediateURLs []string
 }
 
 // Resolver resolves URLs.
@@ -229,7 +229,7 @@ type redirectRecorder struct {
 }
 
 func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request) error {
-	r.result.Hops = append(r.result.Hops, via[len(via)-1].URL.String())
+	r.result.IntermediateURLs = append(r.result.IntermediateURLs, via[len(via)-1].URL.String())
 
 	if len(via) >= maxRedirects {
 		return http.ErrUseLastResponse

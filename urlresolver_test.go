@@ -78,9 +78,9 @@ func TestResolver(t *testing.T) {
 			},
 			givenURL: "/a",
 			wantResult: Result{
-				ResolvedURL: "/b",
-				Title:       "page title",
-				Hops:        []string{"/a"},
+				ResolvedURL:      "/b",
+				Title:            "page title",
+				IntermediateURLs: []string{"/a"},
 			},
 		},
 		{
@@ -92,9 +92,9 @@ func TestResolver(t *testing.T) {
 			},
 			givenURL: "/0",
 			wantResult: Result{
-				ResolvedURL: fmt.Sprintf("/%d", maxRedirects-1),
-				Title:       "",
-				Hops:        []string{"/0", "/1", "/2", "/3", "/4"},
+				ResolvedURL:      fmt.Sprintf("/%d", maxRedirects-1),
+				Title:            "",
+				IntermediateURLs: []string{"/0", "/1", "/2", "/3", "/4"},
 			},
 		},
 		{
@@ -127,9 +127,9 @@ func TestResolver(t *testing.T) {
 			},
 			givenURL: "/a",
 			wantResult: Result{
-				ResolvedURL: "/b",
-				Title:       "🍪",
-				Hops:        []string{"/a"},
+				ResolvedURL:      "/b",
+				Title:            "🍪",
+				IntermediateURLs: []string{"/a"},
 			},
 		},
 		{
@@ -143,9 +143,9 @@ func TestResolver(t *testing.T) {
 			},
 			givenURL: "/forbes",
 			wantResult: Result{
-				ResolvedURL: "/forbes",
-				Title:       "",
-				Hops:        []string{"/forbes"},
+				ResolvedURL:      "/forbes",
+				Title:            "",
+				IntermediateURLs: []string{"/forbes"},
 			},
 		},
 		{
@@ -158,9 +158,9 @@ func TestResolver(t *testing.T) {
 			},
 			givenURL: "/instagram",
 			wantResult: Result{
-				ResolvedURL: "/instagram",
-				Title:       "",
-				Hops:        []string{"/instagram"},
+				ResolvedURL:      "/instagram",
+				Title:            "",
+				IntermediateURLs: []string{"/instagram"},
 			},
 		},
 		{
@@ -199,7 +199,7 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/short-url?AAA=AAA&mmm=mmm&zzz=zzz", // note, we still got a resolved (and canonicalized) URL despite the error
 				Title:       "",
-				Hops: []string{
+				IntermediateURLs: []string{
 					// params sorted and utm_campaign dropped because each hop
 					// is canonicalized
 					"/long-url?AAA=AAA&mmm=mmm&zzz=zzz",
@@ -228,9 +228,9 @@ func TestResolver(t *testing.T) {
 			givenURL: "/foo",
 			timeout:  20 * time.Millisecond,
 			wantResult: Result{
-				ResolvedURL: "/bar", // note, we still got a usefully resolved URL, despite the expected error
-				Title:       "",
-				Hops:        []string{"/foo"},
+				ResolvedURL:      "/bar", // note, we still got a usefully resolved URL, despite the expected error
+				Title:            "",
+				IntermediateURLs: []string{"/foo"},
 			},
 			wantErr: context.DeadlineExceeded,
 		},
@@ -424,9 +424,9 @@ func TestResolver(t *testing.T) {
 			result, err := resolver.Resolve(ctx, givenURL)
 			assertErrorsMatch(t, tc.wantErr, err)
 
-			// fixup relative hop URLs to include test server
-			for idx, hop := range tc.wantResult.Hops {
-				tc.wantResult.Hops[idx] = renderURL(srv.URL, hop)
+			// fixup relative intermediate URLs to include test server
+			for idx, hop := range tc.wantResult.IntermediateURLs {
+				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
 			assert.Equal(t, tc.wantResult, result)
@@ -506,7 +506,7 @@ func TestRedirectHops(t *testing.T) {
 	assert.Equal(t, Result{
 		ResolvedURL: renderURL(srv.URL, "/c"),
 		Title:       "Success",
-		Hops: []string{
+		IntermediateURLs: []string{
 			renderURL(srv.URL, ""),
 			renderURL(srv.URL, "/a"),
 			renderURL(srv.URL, "/b"),
@@ -570,9 +570,9 @@ func TestResolveTweets(t *testing.T) {
 			fullTweetURL: "https://twitter.com/username/status/1234/photos/1?foo=bar",
 			tweetFetcher: okFetcher,
 			wantResult: Result{
-				ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
-				Title:       "tweet text",
-				Hops:        []string{""}, // will be rendered to match test server URL
+				ResolvedURL:      "https://twitter.com/username/status/1234", // note that full URL above was trimmed
+				Title:            "tweet text",
+				IntermediateURLs: []string{""}, // will be rendered to match test server URL
 			},
 		},
 		"error fetching tweet": {
@@ -581,9 +581,9 @@ func TestResolveTweets(t *testing.T) {
 			wantErr:      errors.New("twitter error"),
 			// despite expected error, we still want a partial result
 			wantResult: Result{
-				ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
-				Title:       "",
-				Hops:        []string{""}, // will be rendered to match test server URL
+				ResolvedURL:      "https://twitter.com/username/status/1234", // note that full URL above was trimmed
+				Title:            "",
+				IntermediateURLs: []string{""}, // will be rendered to match test server URL
 			},
 		},
 	}
@@ -605,9 +605,9 @@ func TestResolveTweets(t *testing.T) {
 			result, err := resolver.Resolve(context.Background(), srv.URL)
 			assertErrorsMatch(t, tc.wantErr, err)
 
-			// fixup relative hop URLs to include test server
-			for idx, hop := range tc.wantResult.Hops {
-				tc.wantResult.Hops[idx] = renderURL(srv.URL, hop)
+			// fixup relative intermediate URLs to include test server
+			for idx, hop := range tc.wantResult.IntermediateURLs {
+				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
 			assert.Equal(t, tc.wantResult, result)
