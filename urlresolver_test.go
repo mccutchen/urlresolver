@@ -396,6 +396,18 @@ func TestResolver(t *testing.T) {
 				Title:       "",
 			},
 		},
+		{
+			name: "no redirects",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusOK)
+				mustWriteAll(t, w, "<title>OK</title>")
+			},
+			givenURL: "/foo",
+			wantResult: Result{
+				ResolvedURL: "/foo",
+				Title:       "OK",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
