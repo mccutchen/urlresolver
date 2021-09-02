@@ -80,6 +80,7 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/b",
 				Title:       "page title",
+				Hops:        []string{"/a"},
 			},
 		},
 		{
@@ -93,6 +94,7 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: fmt.Sprintf("/%d", maxRedirects-1),
 				Title:       "",
+				Hops:        []string{"/0", "/1", "/2", "/3", "/4"},
 			},
 		},
 		{
@@ -127,6 +129,7 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/b",
 				Title:       "🍪",
+				Hops:        []string{"/a"},
 			},
 		},
 		{
@@ -142,6 +145,7 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/forbes",
 				Title:       "",
+				Hops:        []string{"/forbes"},
 			},
 		},
 		{
@@ -156,6 +160,7 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/instagram",
 				Title:       "",
+				Hops:        []string{"/instagram"},
 			},
 		},
 		{
@@ -194,6 +199,11 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/short-url?AAA=AAA&mmm=mmm&zzz=zzz", // note, we still got a resolved (and canonicalized) URL despite the error
 				Title:       "",
+				Hops: []string{
+					// params sorted and utm_campaign dropped because each hop
+					// is canonicalized
+					"/long-url?AAA=AAA&mmm=mmm&zzz=zzz",
+				},
 			},
 			wantErr: context.DeadlineExceeded,
 		},
@@ -220,6 +230,7 @@ func TestResolver(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "/bar", // note, we still got a usefully resolved URL, despite the expected error
 				Title:       "",
+				Hops:        []string{"/foo"},
 			},
 			wantErr: context.DeadlineExceeded,
 		},
@@ -412,6 +423,12 @@ func TestResolver(t *testing.T) {
 
 			result, err := resolver.Resolve(ctx, givenURL)
 			assertErrorsMatch(t, tc.wantErr, err)
+
+			// fixup relative hop URLs to include test server
+			for idx, hop := range tc.wantResult.Hops {
+				tc.wantResult.Hops[idx] = renderURL(srv.URL, hop)
+			}
+
 			assert.Equal(t, tc.wantResult, result)
 		})
 	}
@@ -461,8 +478,40 @@ func TestResolver(t *testing.T) {
 		resolver := New(http.DefaultTransport, 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
 		assertErrorsMatch(t, errors.New("invalid URL escape"), err)
-		assert.Equal(t, Result{}, result)
+		assert.Equal(t, Result{ResolvedURL: "%%"}, result)
 	})
+}
+
+func TestRedirectHops(t *testing.T) {
+	t.Parallel()
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/":
+			http.Redirect(w, r, "/a", http.StatusPermanentRedirect)
+		case "/a":
+			http.Redirect(w, r, "/b", http.StatusPermanentRedirect)
+		case "/b":
+			http.Redirect(w, r, "/c", http.StatusPermanentRedirect)
+		case "/c":
+			w.WriteHeader(http.StatusOK)
+			_, _ = w.Write([]byte(`<title>Success</title>`))
+		}
+	}))
+	defer srv.Close()
+
+	resolver := New(http.DefaultTransport, 0)
+	result, err := resolver.Resolve(context.Background(), srv.URL)
+	assert.NoError(t, err)
+	assert.Equal(t, Result{
+		ResolvedURL: renderURL(srv.URL, "/c"),
+		Title:       "Success",
+		Hops: []string{
+			renderURL(srv.URL, ""),
+			renderURL(srv.URL, "/a"),
+			renderURL(srv.URL, "/b"),
+		},
+	}, result)
 }
 
 // assertErrorsMatch is a helper for comparing two error values, mostly to hide
@@ -523,6 +572,7 @@ func TestResolveTweets(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
 				Title:       "tweet text",
+				Hops:        []string{""}, // will be rendered to match test server URL
 			},
 		},
 		"error fetching tweet": {
@@ -533,6 +583,7 @@ func TestResolveTweets(t *testing.T) {
 			wantResult: Result{
 				ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
 				Title:       "",
+				Hops:        []string{""}, // will be rendered to match test server URL
 			},
 		},
 	}
@@ -553,6 +604,12 @@ func TestResolveTweets(t *testing.T) {
 
 			result, err := resolver.Resolve(context.Background(), srv.URL)
 			assertErrorsMatch(t, tc.wantErr, err)
+
+			// fixup relative hop URLs to include test server
+			for idx, hop := range tc.wantResult.Hops {
+				tc.wantResult.Hops[idx] = renderURL(srv.URL, hop)
+			}
+
 			assert.Equal(t, tc.wantResult, result)
 		})
 	}
