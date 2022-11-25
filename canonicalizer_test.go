@@ -14,7 +14,7 @@ type testCase struct {
 func TestCanonicalize(t *testing.T) {
 	t.Parallel()
 
-	var testCases = []testCase{
+	testCases := []testCase{
 		// Normalization
 		{
 			name:     "escaping spaces in various places",
