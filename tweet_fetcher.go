@@ -90,14 +90,28 @@ func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetD
 	}, nil
 }
 
-var tweetRegex = regexp.MustCompile(`(?i)^https://(mobile\.)?twitter\.com/[^/]+/status/\d+`)
+// https://regex101.com/r/EBKewP/1
+var tweetRegex = regexp.MustCompile(`(?i)^https://(mobile\.)?twitter\.com/([^/]+/status/\d+|i/web/status/\d+)`)
 
 // matchTweetURL matches URLs pointing to tweets. If matched, returns the URL
 // to the tweet after removing extra data (extra media paths, query params,
 // etc).
 func matchTweetURL(s string) (string, bool) {
 	match := tweetRegex.FindString(s)
-	return match, match != ""
+	if match != "" {
+		// Twitter's oembed endpoint does not work with these odd
+		// /i/web/status/XXX URLs that contain a tweet ID without a username,
+		// but it does seem to work if you construct a fake tweet URL with that
+		// same tweet ID.
+		//
+		// So, for those URLs, we pretend the tweet has a username of
+		// __urlresolver__.
+		if strings.Contains(s, "/i/web/") {
+			return strings.ReplaceAll(match, "/i/web/", "/__urlresolver__/"), true
+		}
+		return match, true
+	}
+	return "", false
 }
 
 var tcoRegex = regexp.MustCompile(`(?i)^https?://t\.co/.+`)

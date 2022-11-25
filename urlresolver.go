@@ -243,5 +243,4 @@ func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request)
 		return http.ErrUseLastResponse
 	}
 	return nil
-
 }

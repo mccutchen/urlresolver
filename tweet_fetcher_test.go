@@ -36,6 +36,10 @@ func TestMatchTweetURL(t *testing.T) {
 
 		// query parameters ignored
 		{"https://twitter.com/thresholderbot/status/1341197329550995456?utm_whatever=foo", "https://twitter.com/thresholderbot/status/1341197329550995456", true},
+
+		// /i/web/status URLs matched
+		{"https://twitter.com/i/web/status/1595160647238844416", "https://twitter.com/__urlresolver__/status/1595160647238844416", true},
+		{"https://twitter.com/i/web/status/1595160647238844416?foo=bar", "https://twitter.com/__urlresolver__/status/1595160647238844416", true},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.given, func(t *testing.T) {
