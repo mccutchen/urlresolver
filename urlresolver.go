@@ -111,10 +111,6 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 		return result, err
 	}
 
-	if matchTcoURL(givenURL) {
-		req.Header.Set("User-Agent", "curl/7.64.1")
-	}
-
 	recorder := &redirectRecorder{&result}
 
 	resp, err := r.httpClient(recorder).Do(req)
