@@ -137,46 +137,58 @@ func TestResolver(t *testing.T) {
 			// https://github.com/mccutchen/thresholderbot/pull/63
 			name: "forbes interstitial detection",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/start" {
+					http.Redirect(w, r, "/forbes", http.StatusFound)
+					return
+				}
 				if r.URL.Path == "/forbes" {
 					http.Redirect(w, r, "https://www.forbes.com/forbes/welcome/", http.StatusFound)
 					return
 				}
 			},
-			givenURL: "/forbes",
+			givenURL: "/start",
 			wantResult: Result{
 				ResolvedURL:      "/forbes",
 				Title:            "",
-				IntermediateURLs: []string{"/forbes"},
+				IntermediateURLs: []string{"/start"},
 			},
 		},
 		{
 			name: "instagram auth detection",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/start" {
+					http.Redirect(w, r, "/instagram", http.StatusFound)
+					return
+				}
 				if r.URL.Path == "/instagram" {
 					http.Redirect(w, r, "https://www.instagram.com/accounts/login/", http.StatusFound)
 					return
 				}
 			},
-			givenURL: "/instagram",
+			givenURL: "/start",
 			wantResult: Result{
 				ResolvedURL:      "/instagram",
 				Title:            "",
-				IntermediateURLs: []string{"/instagram"},
+				IntermediateURLs: []string{"/start"},
 			},
 		},
 		{
 			name: "bloomberg bot detection",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/start" {
+					http.Redirect(w, r, "/bloomberg", http.StatusFound)
+					return
+				}
 				if r.URL.Path == "/bloomberg" {
 					http.Redirect(w, r, "https://www.bloomberg.com/tosv2.html?url=foo", http.StatusFound)
 					return
 				}
 			},
-			givenURL: "/bloomberg",
+			givenURL: "/start",
 			wantResult: Result{
 				ResolvedURL:      "/bloomberg",
 				Title:            "",
-				IntermediateURLs: []string{"/bloomberg"},
+				IntermediateURLs: []string{"/start"},
 			},
 		},
 		{
@@ -435,14 +447,7 @@ func TestResolver(t *testing.T) {
 			srv := httptest.NewServer(tc.handlerFunc)
 			defer srv.Close()
 
-			resolver := New(&testTransport{
-				roundTrip: func(r *http.Request) (*http.Response, error) {
-					if r.URL.Hostname() != "127.0.0.1" {
-						t.Fatalf("external request to %q forbidden in this test suite", r.URL)
-					}
-					return http.DefaultTransport.RoundTrip(r)
-				},
-			}, 0)
+			resolver := New(newSafeTestTransport(t), 0)
 
 			timeout := tc.timeout
 			if timeout == 0 {
@@ -486,7 +491,7 @@ func TestResolver(t *testing.T) {
 			Coalesced:   true,
 		}
 
-		resolver := New(http.DefaultTransport, 0)
+		resolver := New(newSafeTestTransport(t), 0)
 
 		var wg sync.WaitGroup
 		for i := 0; i < 4; i++ {
@@ -511,7 +516,7 @@ func TestResolver(t *testing.T) {
 	t.Run("invalid URL error", func(t *testing.T) {
 		t.Parallel()
 
-		resolver := New(http.DefaultTransport, 0)
+		resolver := New(newSafeTestTransport(t), 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
 		assertErrorsMatch(t, errors.New("invalid URL escape"), err)
 		assert.Equal(t, Result{ResolvedURL: "%%"}, result)
@@ -536,7 +541,7 @@ func TestRedirectHops(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(http.DefaultTransport, 0)
+	resolver := New(newSafeTestTransport(t), 0)
 	result, err := resolver.Resolve(context.Background(), srv.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, Result{
@@ -708,6 +713,17 @@ type testTransport struct {
 
 func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.roundTrip(req)
+}
+
+func newSafeTestTransport(t *testing.T) *testTransport {
+	return &testTransport{
+		roundTrip: func(r *http.Request) (*http.Response, error) {
+			if r.URL.Hostname() != "127.0.0.1" {
+				t.Fatalf("external request to %q forbidden in this test suite", r.URL)
+			}
+			return http.DefaultTransport.RoundTrip(r)
+		},
+	}
 }
 
 // renderURL takes a dynamic httptest.Server URL string src and an "expected"
