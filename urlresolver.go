@@ -95,6 +95,17 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 		return r.resolveTweet(ctx, tweetURL, result)
 	}
 
+	// Special case Sailthru tracked links, which include the destination URL
+	// directly in the wrapped URL itself (allowing us to skip an HTTP
+	// request).
+	if encodedURL, ok := matchSailthruURL(givenURL); ok {
+		if decodedURL, err := decodeSailthruURL(encodedURL); err == nil {
+			// pretend like we resolved the Sailthru tracking URL
+			result.IntermediateURLs = append(result.IntermediateURLs, givenURL)
+			givenURL = decodedURL
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
 		return result, err
@@ -211,11 +222,11 @@ func decodeBody(body []byte, contentType string) ([]byte, error) {
 // us from ingesting malformed & potentially malicious titles,
 // so this bad title
 //
-//     <title>Hi XSS vuln <script>alert('HACKED');</script>
+//	<title>Hi XSS vuln <script>alert('HACKED');</script>
 //
 // will be parsed as
 //
-//     'Hi XSS vuln '
+//	'Hi XSS vuln '
 //
 // Hooray for dumb things that accidentally protect you!
 var titleRegex = regexp.MustCompile(`(?im)<title[^>]*?>([^<]+)`)
