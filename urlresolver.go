@@ -244,11 +244,6 @@ type redirectRecorder struct {
 }
 
 func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request) error {
-	r.result.IntermediateURLs = append(r.result.IntermediateURLs, via[len(via)-1].URL.String())
-
-	if len(via) >= maxRedirects {
-		return http.ErrUseLastResponse
-	}
 	// Work around instagram auth redirect
 	if strings.Contains(req.URL.String(), "instagram.com/accounts/login/") {
 		return http.ErrUseLastResponse
@@ -258,6 +253,11 @@ func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request)
 		return http.ErrUseLastResponse
 	}
 	if strings.Contains(req.URL.String(), "bloomberg.com/tosv2.html") {
+		return http.ErrUseLastResponse
+	}
+
+	r.result.IntermediateURLs = append(r.result.IntermediateURLs, via[len(via)-1].URL.String())
+	if len(via) >= maxRedirects {
 		return http.ErrUseLastResponse
 	}
 	return nil

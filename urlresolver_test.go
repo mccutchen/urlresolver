@@ -137,46 +137,58 @@ func TestResolver(t *testing.T) {
 			// https://github.com/mccutchen/thresholderbot/pull/63
 			name: "forbes interstitial detection",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/start" {
+					http.Redirect(w, r, "/forbes", http.StatusFound)
+					return
+				}
 				if r.URL.Path == "/forbes" {
 					http.Redirect(w, r, "https://www.forbes.com/forbes/welcome/", http.StatusFound)
 					return
 				}
 			},
-			givenURL: "/forbes",
+			givenURL: "/start",
 			wantResult: Result{
 				ResolvedURL:      "/forbes",
 				Title:            "",
-				IntermediateURLs: []string{"/forbes"},
+				IntermediateURLs: []string{"/start"},
 			},
 		},
 		{
 			name: "instagram auth detection",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/start" {
+					http.Redirect(w, r, "/instagram", http.StatusFound)
+					return
+				}
 				if r.URL.Path == "/instagram" {
 					http.Redirect(w, r, "https://www.instagram.com/accounts/login/", http.StatusFound)
 					return
 				}
 			},
-			givenURL: "/instagram",
+			givenURL: "/start",
 			wantResult: Result{
 				ResolvedURL:      "/instagram",
 				Title:            "",
-				IntermediateURLs: []string{"/instagram"},
+				IntermediateURLs: []string{"/start"},
 			},
 		},
 		{
 			name: "bloomberg bot detection",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/start" {
+					http.Redirect(w, r, "/bloomberg", http.StatusFound)
+					return
+				}
 				if r.URL.Path == "/bloomberg" {
 					http.Redirect(w, r, "https://www.bloomberg.com/tosv2.html?url=foo", http.StatusFound)
 					return
 				}
 			},
-			givenURL: "/bloomberg",
+			givenURL: "/start",
 			wantResult: Result{
 				ResolvedURL:      "/bloomberg",
 				Title:            "",
-				IntermediateURLs: []string{"/bloomberg"},
+				IntermediateURLs: []string{"/start"},
 			},
 		},
 		{
