@@ -257,5 +257,8 @@ func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request)
 	if strings.Contains(req.URL.String(), "forbes.com/forbes/welcome") {
 		return http.ErrUseLastResponse
 	}
+	if strings.Contains(req.URL.String(), "bloomberg.com/tosv2.html") {
+		return http.ErrUseLastResponse
+	}
 	return nil
 }

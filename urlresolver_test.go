@@ -165,6 +165,21 @@ func TestResolver(t *testing.T) {
 			},
 		},
 		{
+			name: "bloomberg bot detection",
+			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path == "/bloomberg" {
+					http.Redirect(w, r, "https://www.bloomberg.com/tosv2.html?url=foo", http.StatusFound)
+					return
+				}
+			},
+			givenURL: "/bloomberg",
+			wantResult: Result{
+				ResolvedURL:      "/bloomberg",
+				Title:            "",
+				IntermediateURLs: []string{"/bloomberg"},
+			},
+		},
+		{
 			name: "timeout waiting on response",
 			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
 				select {

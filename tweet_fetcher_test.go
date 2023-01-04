@@ -42,7 +42,9 @@ func TestMatchTweetURL(t *testing.T) {
 		{"https://twitter.com/i/web/status/1595160647238844416?foo=bar", "https://twitter.com/__urlresolver__/status/1595160647238844416", true},
 	}
 	for _, tc := range testCases {
+		tc := tc
 		t.Run(tc.given, func(t *testing.T) {
+			t.Parallel()
 			url, ok := matchTweetURL(tc.given)
 			if url != tc.wantURL {
 				t.Errorf("expected url == %q, got %q", tc.wantURL, url)
