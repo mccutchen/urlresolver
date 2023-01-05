@@ -243,16 +243,16 @@ type redirectRecorder struct {
 	result *Result
 }
 
+var useLastResponseInterstiatilPattern = listToRegexp("(", ")", []string{
+	`\binstagram\.com/accounts/login/`,
+	`\bforbes\.com/forbes/welcome`,
+	`\bbloomberg\.com/tosv2.html`,
+})
+
 func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request) error {
-	// Work around instagram auth redirect
-	if strings.Contains(req.URL.String(), "instagram.com/accounts/login/") {
-		return http.ErrUseLastResponse
-	}
-	// Work around forbes paywall interstitial
-	if strings.Contains(req.URL.String(), "forbes.com/forbes/welcome") {
-		return http.ErrUseLastResponse
-	}
-	if strings.Contains(req.URL.String(), "bloomberg.com/tosv2.html") {
+	// Looks like we were redirected to a well-known auth or bot detection
+	// interstitial, so we use the previous hop as our final URL.
+	if useLastResponseInterstiatilPattern.MatchString(req.URL.String()) {
 		return http.ErrUseLastResponse
 	}
 
