@@ -63,6 +63,7 @@ var (
 		// Miscellaneous garbage-looking params noticed by @mccutchen while
 		// perusing logs
 		`_r`,
+		`cmpid`,
 		`currentPage`,
 		`fsrc`,
 		`mb?id`,
@@ -111,6 +112,10 @@ var (
 		`wsj\.com`,
 	})
 
+	// Paths under these domains will be lowercased, as they tend to be
+	// usernames that are treated as case-insensitive but may appear in a
+	// variety of cases (e.g. twitter.com/McCutchen and twitter.com/mccutchen
+	// are equivalent).
 	lowercaseDomainPattern = listToRegexp(`(?i)(^|\.)(`, `)$`, []string{
 		`instagram\.com`,
 		`twitter\.com`,

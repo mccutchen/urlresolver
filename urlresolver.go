@@ -36,6 +36,7 @@ type Result struct {
 	ResolvedURL      string
 	Title            string
 	IntermediateURLs []string
+	Coalesced        bool
 }
 
 // Resolver resolves URLs.
@@ -76,10 +77,13 @@ func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error)
 		givenURL = Canonicalize(u)
 	}
 
-	val, err, _ := r.singleflightGroup.Do(givenURL, func() (interface{}, error) {
+	val, err, coalesced := r.singleflightGroup.Do(givenURL, func() (interface{}, error) {
 		return r.doResolve(ctx, givenURL)
 	})
-	return val.(Result), err
+
+	result := val.(Result)
+	result.Coalesced = coalesced
+	return result, err
 }
 
 func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
@@ -91,13 +95,20 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 		return r.resolveTweet(ctx, tweetURL, result)
 	}
 
+	// Special case Sailthru tracked links, which include the destination URL
+	// directly in the wrapped URL itself (allowing us to skip an HTTP
+	// request).
+	if encodedURL, ok := matchSailthruURL(givenURL); ok {
+		if decodedURL, err := decodeSailthruURL(encodedURL); err == nil {
+			// pretend like we resolved the Sailthru tracking URL
+			result.IntermediateURLs = append(result.IntermediateURLs, givenURL)
+			givenURL = decodedURL
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
 		return result, err
-	}
-
-	if matchTcoURL(givenURL) {
-		req.Header.Set("User-Agent", "curl/7.64.1")
 	}
 
 	recorder := &redirectRecorder{&result}
@@ -207,11 +218,11 @@ func decodeBody(body []byte, contentType string) ([]byte, error) {
 // us from ingesting malformed & potentially malicious titles,
 // so this bad title
 //
-//     <title>Hi XSS vuln <script>alert('HACKED');</script>
+//	<title>Hi XSS vuln <script>alert('HACKED');</script>
 //
 // will be parsed as
 //
-//     'Hi XSS vuln '
+//	'Hi XSS vuln '
 //
 // Hooray for dumb things that accidentally protect you!
 var titleRegex = regexp.MustCompile(`(?im)<title[^>]*?>([^<]+)`)
@@ -228,18 +239,21 @@ type redirectRecorder struct {
 	result *Result
 }
 
-func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request) error {
-	r.result.IntermediateURLs = append(r.result.IntermediateURLs, via[len(via)-1].URL.String())
+var useLastResponseInterstiatilPattern = listToRegexp("(", ")", []string{
+	`\binstagram\.com/accounts/login/`,
+	`\bforbes\.com/forbes/welcome`,
+	`\bbloomberg\.com/tosv2.html`,
+})
 
+func (r *redirectRecorder) checkRedirect(req *http.Request, via []*http.Request) error {
+	// Looks like we were redirected to a well-known auth or bot detection
+	// interstitial, so we use the previous hop as our final URL.
+	if useLastResponseInterstiatilPattern.MatchString(req.URL.String()) {
+		return http.ErrUseLastResponse
+	}
+
+	r.result.IntermediateURLs = append(r.result.IntermediateURLs, via[len(via)-1].URL.String())
 	if len(via) >= maxRedirects {
-		return http.ErrUseLastResponse
-	}
-	// Work around instagram auth redirect
-	if strings.Contains(req.URL.String(), "instagram.com/accounts/login/") {
-		return http.ErrUseLastResponse
-	}
-	// Work around forbes paywall interstitial
-	if strings.Contains(req.URL.String(), "forbes.com/forbes/welcome") {
 		return http.ErrUseLastResponse
 	}
 	return nil
