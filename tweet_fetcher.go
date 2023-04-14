@@ -51,7 +51,7 @@ func newTweetFetcher(transport http.RoundTripper, timeout time.Duration, pool *b
 // metadata from Twitter's oembed endpoint.
 func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetData, error) {
 	params := url.Values{
-		"url": {tweetURL},
+		"url": []string{tweetURL},
 	}
 	oembedURL := fmt.Sprintf("%s?%s", f.baseURL, params.Encode())
 
