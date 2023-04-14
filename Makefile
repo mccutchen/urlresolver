@@ -5,11 +5,13 @@ COVERAGE_PATH ?= coverage.out
 COVERAGE_ARGS ?= -covermode=atomic -coverprofile=$(COVERAGE_PATH)
 TEST_ARGS     ?= -race $(COVERAGE_ARGS)
 
-# Tool dependencies
-TOOL_BIN_DIR     ?= $(shell go env GOPATH)/bin
-TOOL_GOLINT      := $(TOOL_BIN_DIR)/golint
-TOOL_REFLEX      := $(TOOL_BIN_DIR)/reflex
-TOOL_STATICCHECK := $(TOOL_BIN_DIR)/staticcheck
+# 3rd party tools
+GOLINT      := go run golang.org/x/lint/golint@latest
+REFLEX      := go run github.com/cespare/reflex@v0.3.1
+STATICCHECK := go run honnef.co/go/tools/cmd/staticcheck@2023.1.3
+
+# Extract golangci-lint version from GitHub actions workflow
+GOLANGCI_LINT_VERSION ?= $(shell grep -A2 'uses: golangci/golangci-lint-action' .github/workflows/lint.yaml  | grep version: | awk '{print $$NF}')
 
 test:
 	go test $(TEST_ARGS) ./...
@@ -26,22 +28,21 @@ testcover: testci
 	go tool cover -html=$(COVERAGE_PATH)
 .PHONY: testcover
 
-lint: $(TOOL_GOLINT) $(TOOL_STATICCHECK)
+lint:
 	test -z "$$(gofmt -d -s -e .)" || (echo "Error: gofmt failed"; gofmt -d -s -e . ; exit 1)
 	go vet ./...
-	$(TOOL_GOLINT) -set_exit_status ./...
-	$(TOOL_STATICCHECK) ./...
+	$(GOLINT) -set_exit_status ./...
+	$(STATICCHECK) ./...
 .PHONY: lint
+
+lintci: lint
+	docker run \
+		--rm \
+		--volume $(pwd):/app \
+		--volume $(HOME)/.cache/golangci-lint/$(GOLANGCI_LINT_VERSION):/root/.cache \
+		--workdir /app \
+		golangci/golangci-lint:$(GOLANGCI_LINT_VERSION) golangci-lint run -v
 
 clean:
 	rm -rf $(COVERAGE_PATH)
 .PHONY: clean
-
-$(TOOL_GOLINT):
-	cd /tmp && go get -u golang.org/x/lint/golint
-
-$(TOOL_REFLEX):
-	cd /tmp && go get -u github.com/cespare/reflex
-
-$(TOOL_STATICCHECK):
-	cd /tmp && go get -u honnef.co/go/tools/cmd/staticcheck
