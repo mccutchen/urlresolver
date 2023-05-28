@@ -154,7 +154,7 @@ func TestFetch(t *testing.T) {
 					w.WriteHeader(http.StatusInternalServerError)
 				}
 			},
-			wantErr: errors.New("twitter oembed error: 500"),
+			wantErr: errors.New("twitter oembed error:"),
 		},
 		"bad JSON": {
 			handler: func(t *testing.T) http.HandlerFunc {

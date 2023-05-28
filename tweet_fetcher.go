@@ -61,7 +61,7 @@ func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetD
 		return tweetData{}, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return tweetData{}, fmt.Errorf("twitter oembed error: %d", resp.StatusCode)
+		return tweetData{}, fmt.Errorf("twitter oembed error: GET %s: HTTP %d", oembedURL, resp.StatusCode)
 	}
 
 	buf := f.pool.Get()

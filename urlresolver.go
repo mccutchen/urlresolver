@@ -62,7 +62,7 @@ func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
 		singleflightGroup: &singleflight.Group{},
 		timeout:           timeout,
 		transport:         transport,
-		tweetFetcher:      newTweetFetcher(transport, timeout, pool),
+		tweetFetcher:      newTweetFetcher(http.DefaultTransport, timeout, pool),
 	}
 }
 
