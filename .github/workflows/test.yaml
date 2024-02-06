@@ -19,18 +19,18 @@ jobs:
     strategy:
       matrix:
         go-version:
+        - '1.21'
         - '1.20'
         - '1.19'
-        - '1.18'
 
     steps:
     - name: setup
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v5
       with:
         go-version: ${{matrix.go-version}}
 
     - name: checkout
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - id: go-cache-paths
       run: |
@@ -38,13 +38,13 @@ jobs:
         echo "::set-output name=go-mod::$(go env GOMODCACHE)"
 
     - name: cache build
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ${{ steps.go-cache-paths.outputs.go-build }}
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-build-${{ hashFiles('**/go.sum') }}
 
     - name: cache mod
-      uses: actions/cache@v2
+      uses: actions/cache@v4
       with:
         path: ${{ steps.go-cache-paths.outputs.go-mod }}
         key: ${{ runner.os }}-go-${{ matrix.go-version }}-mod-${{ hashFiles('**/go.sum') }}
@@ -53,7 +53,7 @@ jobs:
       run: make testci
 
     - name: report code coverage
-      uses: codecov/codecov-action@v1
+      uses: codecov/codecov-action@v3
       with:
-        file: ./coverage.out
-      if: ${{ matrix.go-version == '1.20' }}
+        files: ./coverage.out
+      if: ${{ matrix.go-version == '1.21' }}
