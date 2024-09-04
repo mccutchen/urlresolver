@@ -460,6 +460,7 @@ func TestResolver(t *testing.T) {
 		wantResult := Result{
 			Title:       "title",
 			ResolvedURL: srv.URL,
+			Coalesced:   true,
 		}
 
 		resolver := New(http.DefaultTransport, 0)

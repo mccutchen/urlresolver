@@ -36,6 +36,7 @@ type Result struct {
 	ResolvedURL      string
 	Title            string
 	IntermediateURLs []string
+	Coalesced        bool
 }
 
 // Resolver resolves URLs.
@@ -76,10 +77,13 @@ func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error)
 		givenURL = Canonicalize(u)
 	}
 
-	val, err, _ := r.singleflightGroup.Do(givenURL, func() (interface{}, error) {
+	val, err, coalesced := r.singleflightGroup.Do(givenURL, func() (interface{}, error) {
 		return r.doResolve(ctx, givenURL)
 	})
-	return val.(Result), err
+
+	result := val.(Result)
+	result.Coalesced = coalesced
+	return result, err
 }
 
 func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
