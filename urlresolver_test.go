@@ -8,10 +8,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -686,7 +686,7 @@ func loadTitleTestCases(t *testing.T, maxBodySize int) map[string]titleTestCase 
 
 	testCases := make(map[string]titleTestCase, len(paths))
 	for _, p := range paths {
-		b, err := ioutil.ReadFile(p)
+		b, err := os.ReadFile(p)
 		if err != nil {
 			t.Fatalf("error reading file %s: %s", p, err)
 		}

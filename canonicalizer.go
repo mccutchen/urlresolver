@@ -60,6 +60,12 @@ var (
 		`ncid`,
 		`ref`,
 
+		// Other ad trackers?
+		`ad(set)?_(name|id)`,
+		`omega_(ad|adset|utm)_.+`,
+		`campaign_id`,
+		`variant`,
+
 		// Miscellaneous garbage-looking params noticed by @mccutchen while
 		// perusing logs
 		`_r`,

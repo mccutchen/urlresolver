@@ -116,6 +116,13 @@ func TestCanonicalize(t *testing.T) {
 			given:    "https://instagram.com/McCutchen",
 			expected: "https://instagram.com/mccutchen",
 		},
+
+		// Misc live examples
+		{
+			name:     "misc other ad trackers",
+			given:    "https://cozyhoome.com/products/ultimate-battle-blaster?utm_source=facebook&utm_medium=Instagram_Feed&utm_content=ultimate-battle-blaster%282014.06.21-电动水枪-原素材-916.mp4%29美国%2806.29%29策略1-AP-AA&utm_campaign=AdTestingCompaign&ad_name=ultimate-battle-blaster%282014.06.21-电动水枪-原素材-916.mp4%29美国%2806.29%29策略1-AP-AA&adset_name=ultimate-battle-blaster%282014.06.21-电动水枪-原素材-916.mp4%29美国%2806.29%29-AP-AA+-+广告副本&omega_utm_source=facebook&omega_utm_medium=Instagram_Feed&omega_utm_content=ultimate-battle-blaster%282014.06.21-电动水枪-原素材-916.mp4%29美国%2806.29%29策略1-AP-AA&omega_utm_campaign=AdTestingCompaign&omega_ad_name=ultimate-battle-blaster%282014.06.21-电动水枪-原素材-916.mp4%29美国%2806.29%29策略1-AP-AA&omega_adset_name=ultimate-battle-blaster%282014.06.21-电动水枪-原素材-916.mp4%29美国%2806.29%29-AP-AA+-+广告副本&fbclid=PAZXh0bgNhZW0BMAABphA7q6UnxbUJXjZTj2BQEJIoQcLnESUDHN-7xKqd_GY7azNECaFfzMlgcQ_aem_JUubgFX1pzpCn7zlN9ZMFw&campaign_id=120212446259280673&ad_id=120212446259320673&variant=50129381458194",
+			expected: "https://cozyhoome.com/products/ultimate-battle-blaster",
+		},
 	}
 
 	for _, tc := range testCases {
