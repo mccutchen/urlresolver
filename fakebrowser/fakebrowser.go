@@ -10,10 +10,10 @@ import (
 // Not very sportsmanlike, but basically effective at letting us fetch page
 // titles.
 var DefaultHeaders = map[string]string{
-	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+	"Accept":          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/png,image/svg+xml,*/*;q=0.8",
 	"Accept-Language": "en-US,en;q=0.5",
 	"Referer":         "https://duckduckgo.com/",
-	"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:109.0) Gecko/20100101 Firefox/113.0",
+	"User-Agent":      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:130.0) Gecko/20100101 Firefox/130.0",
 }
 
 // Transport is an http.RoundTripper implementation that injects a set of
