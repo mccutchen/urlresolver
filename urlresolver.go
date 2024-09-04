@@ -95,6 +95,17 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 		return r.resolveTweet(ctx, tweetURL, result)
 	}
 
+	// Special case Sailthru tracked links, which include the destination URL
+	// directly in the wrapped URL itself (allowing us to skip an HTTP
+	// request).
+	if encodedURL, ok := matchSailthruURL(givenURL); ok {
+		if decodedURL, err := decodeSailthruURL(encodedURL); err == nil {
+			// pretend like we resolved the Sailthru tracking URL
+			result.IntermediateURLs = append(result.IntermediateURLs, givenURL)
+			givenURL = decodedURL
+		}
+	}
+
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
 	if err != nil {
 		return result, err

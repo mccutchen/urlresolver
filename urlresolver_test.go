@@ -5,6 +5,7 @@ import (
 	"bytes"
 	"compress/gzip"
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"io"
@@ -419,7 +420,7 @@ func TestResolver(t *testing.T) {
 			srv := httptest.NewServer(tc.handlerFunc)
 			defer srv.Close()
 
-			resolver := New(http.DefaultTransport, 0)
+			resolver := New(newSafeTestTransport(t), 0)
 
 			timeout := tc.timeout
 			if timeout == 0 {
@@ -463,7 +464,7 @@ func TestResolver(t *testing.T) {
 			Coalesced:   true,
 		}
 
-		resolver := New(http.DefaultTransport, 0)
+		resolver := New(newSafeTestTransport(t), 0)
 
 		var wg sync.WaitGroup
 		for i := 0; i < 4; i++ {
@@ -488,7 +489,7 @@ func TestResolver(t *testing.T) {
 	t.Run("invalid URL error", func(t *testing.T) {
 		t.Parallel()
 
-		resolver := New(http.DefaultTransport, 0)
+		resolver := New(newSafeTestTransport(t), 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
 		assertErrorsMatch(t, errors.New("invalid URL escape"), err)
 		assert.Equal(t, Result{ResolvedURL: "%%"}, result)
@@ -513,7 +514,7 @@ func TestRedirectHops(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	resolver := New(http.DefaultTransport, 0)
+	resolver := New(newSafeTestTransport(t), 0)
 	result, err := resolver.Resolve(context.Background(), srv.URL)
 	assert.NoError(t, err)
 	assert.Equal(t, Result{
@@ -525,6 +526,35 @@ func TestRedirectHops(t *testing.T) {
 			renderURL(srv.URL, "/b"),
 		},
 	}, result)
+}
+
+func TestSailthruHandling(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// note that wrapped sailthru links are not canonicalized before they
+		// are fetched (so ?utm_campaign=foo comes through here)
+		assert.Equal(t, "/wrapped-target", r.URL.Path)
+		assert.Equal(t, "utm_campaign=foo", r.URL.RawQuery)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	// construct a fake Sailthru tracking URL that wraps a URL pointing to our
+	// local test server.
+	var (
+		targetURL  = srv.URL + "/wrapped-target?utm_campaign=foo"
+		encodedURL = base64.RawURLEncoding.EncodeToString([]byte(targetURL))
+		givenURL   = fmt.Sprintf("https://link.example.com/click/00000000.0000/%s/0000", encodedURL)
+	)
+
+	wantResult := Result{
+		ResolvedURL:      srv.URL + "/wrapped-target",
+		IntermediateURLs: []string{givenURL},
+	}
+
+	resolver := New(newSafeTestTransport(t), 0)
+	gotResult, err := resolver.Resolve(context.Background(), givenURL)
+	assert.NoError(t, err)
+	assert.Equal(t, wantResult, gotResult)
 }
 
 // assertErrorsMatch is a helper for comparing two error values, mostly to hide
@@ -656,6 +686,17 @@ type testTransport struct {
 
 func (t *testTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	return t.roundTrip(req)
+}
+
+func newSafeTestTransport(t *testing.T) *testTransport {
+	return &testTransport{
+		roundTrip: func(r *http.Request) (*http.Response, error) {
+			if r.URL.Hostname() != "127.0.0.1" {
+				t.Fatalf("external request to %q forbidden in this test suite", r.URL)
+			}
+			return http.DefaultTransport.RoundTrip(r)
+		},
+	}
 }
 
 // renderURL takes a dynamic httptest.Server URL string src and an "expected"
