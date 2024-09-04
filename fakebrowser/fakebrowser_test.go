@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func mergeMaps(t *testing.T, maps ...map[string]string) map[string]string {
+func mergeMaps(maps ...map[string]string) map[string]string {
 	result := make(map[string]string)
 	for _, m := range maps {
 		for k, v := range m {
@@ -33,7 +33,7 @@ func TestHeaderInjection(t *testing.T) {
 				"X-1": "in request",
 				"X-2": "in request",
 			},
-			wantHeaders: mergeMaps(t, DefaultHeaders, map[string]string{
+			wantHeaders: mergeMaps(DefaultHeaders, map[string]string{
 				"Accept-Encoding": "gzip", // added by stdlib http client
 				"X-1":             "in request",
 				"X-2":             "in request",
@@ -46,7 +46,7 @@ func TestHeaderInjection(t *testing.T) {
 				"X-1":        "in request",
 				"X-2":        "in request",
 			},
-			wantHeaders: mergeMaps(t, DefaultHeaders, map[string]string{
+			wantHeaders: mergeMaps(DefaultHeaders, map[string]string{
 				"Accept-Encoding": "gzip",       // added by stdlib http client
 				"User-Agent":      "in request", // will override value in DefaultHeaders
 				"X-1":             "in request",
@@ -61,7 +61,7 @@ func TestHeaderInjection(t *testing.T) {
 				"X-1": "in request",
 				"X-2": "in request",
 			},
-			wantHeaders: mergeMaps(t, map[string]string{
+			wantHeaders: mergeMaps(map[string]string{
 				"Accept-Encoding": "gzip", // added by stdlib http client
 				"User-Agent":      "custom-user-agent",
 				"X-1":             "in request",
