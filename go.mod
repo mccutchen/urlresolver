@@ -1,13 +1,13 @@
 module github.com/mccutchen/urlresolver
 
-go 1.21
+go 1.23.0
 
 require (
 	github.com/PuerkitoBio/purell v1.2.1
 	github.com/stretchr/testify v1.7.0
-	golang.org/x/net v0.33.0
-	golang.org/x/sync v0.10.0
-	golang.org/x/text v0.21.0
+	golang.org/x/net v0.37.0
+	golang.org/x/sync v0.12.0
+	golang.org/x/text v0.23.0
 )
 
 require (
