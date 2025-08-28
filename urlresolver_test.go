@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/encoding/charmap"
+
+	"github.com/mccutchen/urlresolver/internal/testing/assert"
 )
 
 type titleTestCase struct {
@@ -469,7 +470,7 @@ func TestResolver(t *testing.T) {
 				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
-			assert.Equal(t, tc.wantResult, result)
+			assert.DeepEqual(t, tc.wantResult, result)
 		})
 	}
 
@@ -503,8 +504,8 @@ func TestResolver(t *testing.T) {
 				// check happens, so all requests should be coalesced.
 				url := fmt.Sprintf("%s?utm_campaign=%d", srv.URL, i)
 				result, err := resolver.Resolve(context.Background(), url)
-				assert.NoError(t, err)
-				assert.Equal(t, wantResult, result)
+				assert.NilError(t, err)
+				assert.DeepEqual(t, wantResult, result)
 			}(i)
 		}
 		wg.Wait()
@@ -518,8 +519,8 @@ func TestResolver(t *testing.T) {
 
 		resolver := New(newSafeTestTransport(t), 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
-		assertErrorsMatch(t, errors.New("invalid URL escape"), err)
-		assert.Equal(t, Result{ResolvedURL: "%%"}, result)
+		assertErrorsMatch(t, errors.New("parse \"%%\": invalid URL escape \"%%\""), err)
+		assert.DeepEqual(t, Result{ResolvedURL: "%%"}, result)
 	})
 }
 
@@ -543,8 +544,8 @@ func TestRedirectHops(t *testing.T) {
 
 	resolver := New(newSafeTestTransport(t), 0)
 	result, err := resolver.Resolve(context.Background(), srv.URL)
-	assert.NoError(t, err)
-	assert.Equal(t, Result{
+	assert.NilError(t, err)
+	assert.DeepEqual(t, Result{
 		ResolvedURL: renderURL(srv.URL, "/c"),
 		Title:       "Success",
 		IntermediateURLs: []string{
@@ -580,8 +581,8 @@ func TestSailthruHandling(t *testing.T) {
 
 	resolver := New(newSafeTestTransport(t), 0)
 	gotResult, err := resolver.Resolve(context.Background(), givenURL)
-	assert.NoError(t, err)
-	assert.Equal(t, wantResult, gotResult)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, wantResult, gotResult)
 }
 
 // assertErrorsMatch is a helper for comparing two error values, mostly to hide
@@ -590,11 +591,9 @@ func TestSailthruHandling(t *testing.T) {
 func assertErrorsMatch(t *testing.T, want, got error) {
 	t.Helper()
 	if want != nil {
-		if assert.Error(t, got) {
-			assert.Contains(t, got.Error(), want.Error())
-		}
+		assert.Error(t, got, want)
 	} else {
-		assert.NoError(t, got, "got unexpected error")
+		assert.NilError(t, got)
 	}
 }
 
@@ -680,7 +679,7 @@ func TestResolveTweets(t *testing.T) {
 				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
-			assert.Equal(t, tc.wantResult, result)
+			assert.DeepEqual(t, tc.wantResult, result)
 		})
 	}
 
@@ -691,8 +690,8 @@ func TestResolveTweets(t *testing.T) {
 		resolver.tweetFetcher = okFetcher
 
 		result, err := resolver.Resolve(context.Background(), "https://twitter.com/username/status/1234/photos/1?foo=bar")
-		assert.NoError(t, err)
-		assert.Equal(t, Result{
+		assert.NilError(t, err)
+		assert.DeepEqual(t, Result{
 			ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
 			Title:       "tweet text",
 		}, result)

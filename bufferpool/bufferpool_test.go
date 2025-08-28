@@ -3,7 +3,7 @@ package bufferpool
 import (
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/mccutchen/urlresolver/internal/testing/assert"
 )
 
 // Kind of a silly/pointless test, but it should satisfy codecov
@@ -12,6 +12,6 @@ func TestBufferPool(t *testing.T) {
 	b := p.Get()
 	n, err := b.Write([]byte("foo"))
 	assert.Equal(t, len("foo"), n)
-	assert.NoError(t, err)
+	assert.NilError(t, err)
 	p.Put(b)
 }

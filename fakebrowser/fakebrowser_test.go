@@ -6,7 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
+	"github.com/mccutchen/urlresolver/internal/testing/assert"
 )
 
 func mergeMaps(maps ...map[string]string) map[string]string {
@@ -80,19 +80,19 @@ func TestHeaderInjection(t *testing.T) {
 				for k := range r.Header {
 					gotHeaders[k] = r.Header.Get(k)
 				}
-				assert.Equal(t, tc.wantHeaders, gotHeaders)
+				assert.DeepEqual(t, tc.wantHeaders, gotHeaders)
 			}))
 			defer srv.Close()
 
 			req, err := http.NewRequest("GET", srv.URL, nil)
-			assert.NoError(t, err)
+			assert.NilError(t, err)
 			for k, v := range tc.requestHeaders {
 				req.Header.Set(k, v)
 			}
 
 			client := &http.Client{Transport: tc.transport}
 			resp, err := client.Do(req)
-			assert.NoError(t, err)
+			assert.NilError(t, err)
 			assert.Equal(t, resp.StatusCode, http.StatusOK)
 		})
 	}
