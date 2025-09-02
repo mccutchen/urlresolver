@@ -11,7 +11,7 @@ func TestBufferPool(t *testing.T) {
 	p := New()
 	b := p.Get()
 	n, err := b.Write([]byte("foo"))
-	assert.Equal(t, len("foo"), n)
+	assert.Equal(t, n, len("foo"))
 	assert.NilError(t, err)
 	p.Put(b)
 }

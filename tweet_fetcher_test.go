@@ -103,7 +103,7 @@ func TestFetch(t *testing.T) {
 			handler: func(t *testing.T) http.HandlerFunc {
 				return func(w http.ResponseWriter, r *http.Request) {
 					gotURL := r.URL.Query().Get("url")
-					assert.Equal(t, tweetURL, gotURL)
+					assert.Equal(t, gotURL, tweetURL)
 
 					w.Write([]byte(`{
   "url": "https://twitter.com/thresholderbot/status/1341197329550995456",
@@ -227,7 +227,7 @@ func TestFetch(t *testing.T) {
 			} else {
 				assert.NilError(t, err)
 			}
-			assert.Equal(t, tc.wantResult, result)
+			assert.Equal(t, result, tc.wantResult)
 		})
 	}
 }

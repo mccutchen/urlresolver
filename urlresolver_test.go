@@ -510,7 +510,7 @@ func TestResolver(t *testing.T) {
 		}
 		wg.Wait()
 
-		assert.Equal(t, int64(1), counter, "expected all requests coalesced into 1")
+		assert.Equal(t, counter, int64(1), "expected all requests coalesced into 1")
 	})
 
 	// an invalid URL is the only way to get an error out of Resolve
@@ -560,8 +560,8 @@ func TestSailthruHandling(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// note that wrapped sailthru links are not canonicalized before they
 		// are fetched (so ?utm_campaign=foo comes through here)
-		assert.Equal(t, "/wrapped-target", r.URL.Path)
-		assert.Equal(t, "utm_campaign=foo", r.URL.RawQuery)
+		assert.Equal(t, r.URL.Path, "/wrapped-target")
+		assert.Equal(t, r.URL.RawQuery, "utm_campaign=foo")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()

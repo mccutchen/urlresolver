@@ -40,7 +40,7 @@ func TestSailthruResolver(t *testing.T) {
 				return
 			}
 			assert.NilError(t, err)
-			assert.Equal(t, tc.wantDecodedURL, decodedURL)
+			assert.Equal(t, decodedURL, tc.wantDecodedURL)
 		})
 	}
 }
