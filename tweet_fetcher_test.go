@@ -11,7 +11,7 @@ import (
 	"time"
 
 	"github.com/mccutchen/urlresolver/bufferpool"
-	"github.com/stretchr/testify/assert"
+	"github.com/mccutchen/urlresolver/internal/testing/assert"
 )
 
 func TestMatchTweetURL(t *testing.T) {
@@ -103,7 +103,7 @@ func TestFetch(t *testing.T) {
 			handler: func(t *testing.T) http.HandlerFunc {
 				return func(w http.ResponseWriter, r *http.Request) {
 					gotURL := r.URL.Query().Get("url")
-					assert.Equal(t, tweetURL, gotURL)
+					assert.Equal(t, gotURL, tweetURL)
 
 					w.Write([]byte(`{
   "url": "https://twitter.com/thresholderbot/status/1341197329550995456",
@@ -135,7 +135,7 @@ func TestFetch(t *testing.T) {
 					}
 				}
 			},
-			wantErr: errors.New("context deadline exceeded"),
+			wantErr: context.DeadlineExceeded,
 		},
 		"timeout during read": {
 			handler: func(t *testing.T) http.HandlerFunc {
@@ -148,15 +148,16 @@ func TestFetch(t *testing.T) {
 					}
 				}
 			},
-			wantErr: errors.New("context deadline exceeded"),
+			wantErr: context.DeadlineExceeded,
 		},
 		"server error": {
 			handler: func(t *testing.T) http.HandlerFunc {
 				return func(w http.ResponseWriter, r *http.Request) {
 					w.WriteHeader(http.StatusInternalServerError)
+					w.Write([]byte("expected error from upstream test server"))
 				}
 			},
-			wantErr: errors.New("twitter oembed error:"),
+			wantErr: errors.New("twitter oembed error: HTTP 500: expected error from upstream test server"),
 		},
 		"bad JSON": {
 			handler: func(t *testing.T) http.HandlerFunc {
@@ -164,7 +165,7 @@ func TestFetch(t *testing.T) {
 					w.Write([]byte("["))
 				}
 			},
-			wantErr: errors.New("invalid json in twitter oembed response"),
+			wantErr: errors.New("invalid json in twitter oembed response: unexpected end of JSON input"),
 		},
 		"nonsense JSON": {
 			handler: func(t *testing.T) http.HandlerFunc {
@@ -172,7 +173,7 @@ func TestFetch(t *testing.T) {
 					w.Write([]byte("{}"))
 				}
 			},
-			wantErr: errors.New("unexpected json format"),
+			wantErr: errors.New("unexpected json format in twitter oembed response: \"{}\""),
 		},
 		"incomplete HTML": {
 			handler: func(t *testing.T) http.HandlerFunc {
@@ -222,12 +223,11 @@ func TestFetch(t *testing.T) {
 
 			result, err := fetcher.Fetch(ctx, tweetURL)
 			if tc.wantErr != nil {
-				assert.NotNil(t, err, "expected non-nil error")
-				assert.Contains(t, err.Error(), tc.wantErr.Error())
+				assert.Error(t, err, tc.wantErr)
 			} else {
-				assert.NoError(t, err)
+				assert.NilError(t, err)
 			}
-			assert.Equal(t, tc.wantResult, result)
+			assert.Equal(t, result, tc.wantResult)
 		})
 	}
 }

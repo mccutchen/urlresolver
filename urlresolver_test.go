@@ -21,8 +21,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/stretchr/testify/assert"
 	"golang.org/x/text/encoding/charmap"
+
+	"github.com/mccutchen/urlresolver/internal/testing/assert"
 )
 
 type titleTestCase struct {
@@ -462,14 +463,14 @@ func TestResolver(t *testing.T) {
 			}
 
 			result, err := resolver.Resolve(ctx, givenURL)
-			assertErrorsMatch(t, tc.wantErr, err)
+			assert.Error(t, err, tc.wantErr)
 
 			// fixup relative intermediate URLs to include test server
 			for idx, hop := range tc.wantResult.IntermediateURLs {
 				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
-			assert.Equal(t, tc.wantResult, result)
+			assert.DeepEqual(t, result, tc.wantResult)
 		})
 	}
 
@@ -503,13 +504,13 @@ func TestResolver(t *testing.T) {
 				// check happens, so all requests should be coalesced.
 				url := fmt.Sprintf("%s?utm_campaign=%d", srv.URL, i)
 				result, err := resolver.Resolve(context.Background(), url)
-				assert.NoError(t, err)
-				assert.Equal(t, wantResult, result)
+				assert.NilError(t, err)
+				assert.DeepEqual(t, result, wantResult)
 			}(i)
 		}
 		wg.Wait()
 
-		assert.Equal(t, int64(1), counter, "expected all requests coalesced into 1")
+		assert.Equal(t, counter, int64(1), "expected all requests coalesced into 1")
 	})
 
 	// an invalid URL is the only way to get an error out of Resolve
@@ -518,8 +519,8 @@ func TestResolver(t *testing.T) {
 
 		resolver := New(newSafeTestTransport(t), 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
-		assertErrorsMatch(t, errors.New("invalid URL escape"), err)
-		assert.Equal(t, Result{ResolvedURL: "%%"}, result)
+		assert.Error(t, errors.New("parse \"%%\": invalid URL escape \"%%\""), err)
+		assert.DeepEqual(t, result, Result{ResolvedURL: "%%"})
 	})
 }
 
@@ -543,8 +544,8 @@ func TestRedirectHops(t *testing.T) {
 
 	resolver := New(newSafeTestTransport(t), 0)
 	result, err := resolver.Resolve(context.Background(), srv.URL)
-	assert.NoError(t, err)
-	assert.Equal(t, Result{
+	assert.NilError(t, err)
+	assert.DeepEqual(t, result, Result{
 		ResolvedURL: renderURL(srv.URL, "/c"),
 		Title:       "Success",
 		IntermediateURLs: []string{
@@ -552,15 +553,15 @@ func TestRedirectHops(t *testing.T) {
 			renderURL(srv.URL, "/a"),
 			renderURL(srv.URL, "/b"),
 		},
-	}, result)
+	})
 }
 
 func TestSailthruHandling(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// note that wrapped sailthru links are not canonicalized before they
 		// are fetched (so ?utm_campaign=foo comes through here)
-		assert.Equal(t, "/wrapped-target", r.URL.Path)
-		assert.Equal(t, "utm_campaign=foo", r.URL.RawQuery)
+		assert.Equal(t, r.URL.Path, "/wrapped-target")
+		assert.Equal(t, r.URL.RawQuery, "utm_campaign=foo")
 		w.WriteHeader(http.StatusOK)
 	}))
 	defer srv.Close()
@@ -580,22 +581,8 @@ func TestSailthruHandling(t *testing.T) {
 
 	resolver := New(newSafeTestTransport(t), 0)
 	gotResult, err := resolver.Resolve(context.Background(), givenURL)
-	assert.NoError(t, err)
-	assert.Equal(t, wantResult, gotResult)
-}
-
-// assertErrorsMatch is a helper for comparing two error values, mostly to hide
-// the awkwardness of comparing error strings necessitated by the kinds of
-// network errors we're dealing with containing random IP addresses.
-func assertErrorsMatch(t *testing.T, want, got error) {
-	t.Helper()
-	if want != nil {
-		if assert.Error(t, got) {
-			assert.Contains(t, got.Error(), want.Error())
-		}
-	} else {
-		assert.NoError(t, got, "got unexpected error")
-	}
+	assert.NilError(t, err)
+	assert.DeepEqual(t, gotResult, wantResult)
 }
 
 func TestResolveTweets(t *testing.T) {
@@ -659,8 +646,6 @@ func TestResolveTweets(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
-
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -673,14 +658,14 @@ func TestResolveTweets(t *testing.T) {
 			resolver.tweetFetcher = tc.tweetFetcher
 
 			result, err := resolver.Resolve(context.Background(), srv.URL)
-			assertErrorsMatch(t, tc.wantErr, err)
+			assert.Error(t, err, tc.wantErr)
 
 			// fixup relative intermediate URLs to include test server
 			for idx, hop := range tc.wantResult.IntermediateURLs {
 				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
-			assert.Equal(t, tc.wantResult, result)
+			assert.DeepEqual(t, result, tc.wantResult)
 		})
 	}
 
@@ -691,11 +676,11 @@ func TestResolveTweets(t *testing.T) {
 		resolver.tweetFetcher = okFetcher
 
 		result, err := resolver.Resolve(context.Background(), "https://twitter.com/username/status/1234/photos/1?foo=bar")
-		assert.NoError(t, err)
-		assert.Equal(t, Result{
+		assert.NilError(t, err)
+		assert.DeepEqual(t, result, Result{
 			ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
 			Title:       "tweet text",
-		}, result)
+		})
 	})
 }
 

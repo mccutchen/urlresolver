@@ -58,17 +58,19 @@ func (f *oembedTweetFetcher) Fetch(ctx context.Context, tweetURL string) (tweetD
 	req, _ := http.NewRequestWithContext(ctx, "GET", oembedURL, nil)
 	resp, err := f.httpClient.Do(req)
 	if err != nil {
-		return tweetData{}, err
-	}
-	if resp.StatusCode != http.StatusOK {
-		return tweetData{}, fmt.Errorf("twitter oembed error: GET %s: HTTP %d", oembedURL, resp.StatusCode)
+		return tweetData{}, fmt.Errorf("twitter oembed error: %w", err)
 	}
 
 	buf := f.pool.Get()
+	buf.Reset()
 	defer f.pool.Put(buf)
 
 	if _, err := io.Copy(buf, resp.Body); err != nil {
 		return tweetData{}, fmt.Errorf("error reading twitter oembed response: %w", err)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return tweetData{}, fmt.Errorf("twitter oembed error: HTTP %d: %s", resp.StatusCode, buf.String())
 	}
 
 	var oembedResult struct {
