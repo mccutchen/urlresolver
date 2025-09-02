@@ -80,7 +80,7 @@ func TestHeaderInjection(t *testing.T) {
 				for k := range r.Header {
 					gotHeaders[k] = r.Header.Get(k)
 				}
-				assert.DeepEqual(t, tc.wantHeaders, gotHeaders)
+				assert.DeepEqual(t, gotHeaders, tc.wantHeaders)
 			}))
 			defer srv.Close()
 

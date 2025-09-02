@@ -470,7 +470,7 @@ func TestResolver(t *testing.T) {
 				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
-			assert.DeepEqual(t, tc.wantResult, result)
+			assert.DeepEqual(t, result, tc.wantResult)
 		})
 	}
 
@@ -505,7 +505,7 @@ func TestResolver(t *testing.T) {
 				url := fmt.Sprintf("%s?utm_campaign=%d", srv.URL, i)
 				result, err := resolver.Resolve(context.Background(), url)
 				assert.NilError(t, err)
-				assert.DeepEqual(t, wantResult, result)
+				assert.DeepEqual(t, result, wantResult)
 			}(i)
 		}
 		wg.Wait()
@@ -520,7 +520,7 @@ func TestResolver(t *testing.T) {
 		resolver := New(newSafeTestTransport(t), 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
 		assert.Error(t, errors.New("parse \"%%\": invalid URL escape \"%%\""), err)
-		assert.DeepEqual(t, Result{ResolvedURL: "%%"}, result)
+		assert.DeepEqual(t, result, Result{ResolvedURL: "%%"})
 	})
 }
 
@@ -545,7 +545,7 @@ func TestRedirectHops(t *testing.T) {
 	resolver := New(newSafeTestTransport(t), 0)
 	result, err := resolver.Resolve(context.Background(), srv.URL)
 	assert.NilError(t, err)
-	assert.DeepEqual(t, Result{
+	assert.DeepEqual(t, result, Result{
 		ResolvedURL: renderURL(srv.URL, "/c"),
 		Title:       "Success",
 		IntermediateURLs: []string{
@@ -553,7 +553,7 @@ func TestRedirectHops(t *testing.T) {
 			renderURL(srv.URL, "/a"),
 			renderURL(srv.URL, "/b"),
 		},
-	}, result)
+	})
 }
 
 func TestSailthruHandling(t *testing.T) {
@@ -582,7 +582,7 @@ func TestSailthruHandling(t *testing.T) {
 	resolver := New(newSafeTestTransport(t), 0)
 	gotResult, err := resolver.Resolve(context.Background(), givenURL)
 	assert.NilError(t, err)
-	assert.DeepEqual(t, wantResult, gotResult)
+	assert.DeepEqual(t, gotResult, wantResult)
 }
 
 func TestResolveTweets(t *testing.T) {
@@ -665,7 +665,7 @@ func TestResolveTweets(t *testing.T) {
 				tc.wantResult.IntermediateURLs[idx] = renderURL(srv.URL, hop)
 			}
 
-			assert.DeepEqual(t, tc.wantResult, result)
+			assert.DeepEqual(t, result, tc.wantResult)
 		})
 	}
 
@@ -677,10 +677,10 @@ func TestResolveTweets(t *testing.T) {
 
 		result, err := resolver.Resolve(context.Background(), "https://twitter.com/username/status/1234/photos/1?foo=bar")
 		assert.NilError(t, err)
-		assert.DeepEqual(t, Result{
+		assert.DeepEqual(t, result, Result{
 			ResolvedURL: "https://twitter.com/username/status/1234", // note that full URL above was trimmed
 			Title:       "tweet text",
-		}, result)
+		})
 	})
 }
 
