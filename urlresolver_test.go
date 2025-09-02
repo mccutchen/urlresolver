@@ -463,7 +463,7 @@ func TestResolver(t *testing.T) {
 			}
 
 			result, err := resolver.Resolve(ctx, givenURL)
-			assertErrorsMatch(t, tc.wantErr, err)
+			assert.Error(t, err, tc.wantErr)
 
 			// fixup relative intermediate URLs to include test server
 			for idx, hop := range tc.wantResult.IntermediateURLs {
@@ -519,7 +519,7 @@ func TestResolver(t *testing.T) {
 
 		resolver := New(newSafeTestTransport(t), 0)
 		result, err := resolver.Resolve(context.Background(), "%%")
-		assertErrorsMatch(t, errors.New("parse \"%%\": invalid URL escape \"%%\""), err)
+		assert.Error(t, errors.New("parse \"%%\": invalid URL escape \"%%\""), err)
 		assert.DeepEqual(t, Result{ResolvedURL: "%%"}, result)
 	})
 }
@@ -585,18 +585,6 @@ func TestSailthruHandling(t *testing.T) {
 	assert.DeepEqual(t, wantResult, gotResult)
 }
 
-// assertErrorsMatch is a helper for comparing two error values, mostly to hide
-// the awkwardness of comparing error strings necessitated by the kinds of
-// network errors we're dealing with containing random IP addresses.
-func assertErrorsMatch(t *testing.T, want, got error) {
-	t.Helper()
-	if want != nil {
-		assert.Error(t, got, want)
-	} else {
-		assert.NilError(t, got)
-	}
-}
-
 func TestResolveTweets(t *testing.T) {
 	t.Parallel()
 
@@ -658,8 +646,6 @@ func TestResolveTweets(t *testing.T) {
 	}
 
 	for name, tc := range testCases {
-		tc := tc
-
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
@@ -672,7 +658,7 @@ func TestResolveTweets(t *testing.T) {
 			resolver.tweetFetcher = tc.tweetFetcher
 
 			result, err := resolver.Resolve(context.Background(), srv.URL)
-			assertErrorsMatch(t, tc.wantErr, err)
+			assert.Error(t, err, tc.wantErr)
 
 			// fixup relative intermediate URLs to include test server
 			for idx, hop := range tc.wantResult.IntermediateURLs {

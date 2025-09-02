@@ -32,45 +32,28 @@ func DeepEqual[T any](t testing.TB, got, want T, desc ...string) {
 	}
 }
 
+// Error asserts that an error matches an expected error or any one of a list
+// of expected errors.
+func Error(t testing.TB, got, want error) {
+	t.Helper()
+	switch {
+	case want == nil && got != nil:
+		t.Fatalf("want nil error, got %q (%T)", got, got)
+	case want != nil && got == nil:
+		t.Fatalf("got nil error, want %q (%T)", want, want)
+	case want == nil && got == nil:
+		return
+	case errors.Is(got, want):
+		return
+	case got.Error() == want.Error():
+		return
+	default:
+		t.Fatalf("want error %q, got %q (%T vs %T)", want, got, want, got)
+	}
+}
+
 // NilError asserts that an error is nil.
 func NilError(t testing.TB, err error) {
 	t.Helper()
-	if err != nil {
-		t.Fatalf("expected nil error, got %q (%T)", err, err)
-	}
-}
-
-// Error asserts that an error matches an expected error or any one of a list
-// of expected errors.
-func Error(t testing.TB, got, expected error, alternates ...error) {
-	t.Helper()
-	matched := false
-	wantAny := append([]error{expected}, alternates...)
-	for _, want := range wantAny {
-		if errorsMatch(t, got, want) {
-			matched = true
-			break
-		}
-	}
-	if !matched {
-		if len(wantAny) == 1 {
-			t.Fatalf("expected error %q, got %q (%T vs %T)", expected, got, expected, got)
-		} else {
-			t.Fatalf("expected one of %v, got %q (%T)", wantAny, got, got)
-		}
-	}
-}
-
-func errorsMatch(t testing.TB, got, expected error) bool {
-	t.Helper()
-	if got == nil {
-		t.Fatalf("got nil error")
-	}
-	if expected == nil {
-		t.Fatalf("expected error cannot be nil")
-	}
-	if errors.Is(got, expected) {
-		return true
-	}
-	return got.Error() == expected.Error()
+	Error(t, err, nil)
 }
