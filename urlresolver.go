@@ -134,7 +134,7 @@ func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, erro
 
 		return result, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	// At this point, we have at least resolved and canonicalized the URL,
 	// whether or not we can successfully extract a title.
