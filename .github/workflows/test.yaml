@@ -11,9 +11,13 @@ concurrency:
   group: "test-${{ github.ref }}"
   cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
 
+permissions: {}
+
 jobs:
   test:
     name: test
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
 
     strategy:
@@ -26,18 +30,20 @@ jobs:
 
     steps:
     - name: setup
-      uses: actions/setup-go@v5
+      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: ${{matrix.go-version}}
 
     - name: checkout
-      uses: actions/checkout@v4
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        persist-credentials: false
 
     - name: test
       run: make testci
 
     - name: report code coverage
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@303a32d7a59b442fa8d48b6a1cc6825c09c847a5 # v7.1.1
       with:
         files: ./coverage.out
       if: ${{ matrix.go-version == 'stable' }}
