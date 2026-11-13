@@ -585,6 +585,35 @@ func TestSailthruHandling(t *testing.T) {
 	assert.DeepEqual(t, gotResult, wantResult)
 }
 
+func TestAWSTrackHandling(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// note that wrapped awstrack links are not canonicalized before they
+		// are fetched (so ?utm_campaign=foo comes through here)
+		assert.Equal(t, r.URL.Path, "/wrapped-target")
+		assert.Equal(t, r.URL.RawQuery, "utm_campaign=foo")
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer srv.Close()
+
+	// construct a fake AWS SES tracking URL that wraps a URL pointing to our
+	// local test server.
+	var (
+		targetURL  = srv.URL + "/wrapped-target?utm_campaign=foo"
+		encodedURL = url.PathEscape(targetURL)
+		givenURL   = fmt.Sprintf("https://abcd1234.r.us-east-1.awstrack.me/L0/%s/1/0000/sig=1", encodedURL)
+	)
+
+	wantResult := Result{
+		ResolvedURL:      srv.URL + "/wrapped-target",
+		IntermediateURLs: []string{givenURL},
+	}
+
+	resolver := New(newSafeTestTransport(t), 0)
+	gotResult, err := resolver.Resolve(context.Background(), givenURL)
+	assert.NilError(t, err)
+	assert.DeepEqual(t, gotResult, wantResult)
+}
+
 func TestResolveTweets(t *testing.T) {
 	t.Parallel()
 

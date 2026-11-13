@@ -71,13 +71,14 @@ func New(transport http.RoundTripper, timeout time.Duration) *Resolver {
 // the final URL, and attempting to extract the title from the final response
 // body.
 func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error) {
-	// Immediately canonicalize the given URL to slightly increase the chance
-	// of coalescing multiple requests into one.
+	// Use the canonicalized URL as the coalescing key to slightly increase the
+	// chance of coalescing multiple requests into one.
+	key := givenURL
 	if u, err := url.Parse(givenURL); err == nil {
-		givenURL = Canonicalize(u)
+		key = Canonicalize(u)
 	}
 
-	val, err, coalesced := r.singleflightGroup.Do(givenURL, func() (interface{}, error) {
+	val, err, coalesced := r.singleflightGroup.Do(key, func() (interface{}, error) {
 		return r.doResolve(ctx, givenURL)
 	})
 
@@ -86,24 +87,45 @@ func (r *Resolver) Resolve(ctx context.Context, givenURL string) (Result, error)
 	return result, err
 }
 
+// unwrapEmbeddedURL checks whether the given URL is known to embed its target
+// URL in itself (e.g. those from email click trackers like Sailthru and AWS
+// SES), and returns the target URL if so.
+//
+// Note: must be called before canonicalization to avoid potentially mangling
+// the encoded target URL.
+func unwrapEmbeddedURL(s string) (string, bool) {
+	if encodedURL, ok := matchSailthruURL(s); ok {
+		if decodedURL, err := decodeSailthruURL(encodedURL); err == nil {
+			return decodedURL, true
+		}
+	}
+	if encodedURL, ok := matchAWSTrackURL(s); ok {
+		if decodedURL, err := decodeAWSTrackURL(encodedURL); err == nil {
+			return decodedURL, true
+		}
+	}
+	return "", false
+}
+
 func (r *Resolver) doResolve(ctx context.Context, givenURL string) (Result, error) {
-	result := Result{ResolvedURL: givenURL}
+	var result Result
+
+	// Check for a URL that embeds its own target URL to skip an HTTP request.
+	// Must be done before canonicalization, which can mangle the embedded
+	// target URL (e.g. by unescaping and then collapsing encoded slashes).
+	if targetURL, ok := unwrapEmbeddedURL(givenURL); ok {
+		// pretend like we resolved the tracking URL
+		result.IntermediateURLs = append(result.IntermediateURLs, givenURL)
+		givenURL = targetURL
+	} else if u, err := url.Parse(givenURL); err == nil {
+		givenURL = Canonicalize(u)
+	}
+	result.ResolvedURL = givenURL
 
 	// Short-circuit special case for tweet URLs, which we ask Twitter to help
 	// us resolve.
 	if tweetURL, ok := matchTweetURL(givenURL); ok {
 		return r.resolveTweet(ctx, tweetURL, result)
-	}
-
-	// Special case Sailthru tracked links, which include the destination URL
-	// directly in the wrapped URL itself (allowing us to skip an HTTP
-	// request).
-	if encodedURL, ok := matchSailthruURL(givenURL); ok {
-		if decodedURL, err := decodeSailthruURL(encodedURL); err == nil {
-			// pretend like we resolved the Sailthru tracking URL
-			result.IntermediateURLs = append(result.IntermediateURLs, givenURL)
-			givenURL = decodedURL
-		}
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", givenURL, nil)
